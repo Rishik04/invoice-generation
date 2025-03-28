@@ -72,7 +72,7 @@ const generateHeader = (doc, company, invoice) => {
   doc
     .fontSize(10)
     .text(`GSTIN: ${company.gstin}`, { align: "left" })
-    .text(`HM.No.: ${invoice.hmNumber || "5896024423"}`, { align: "right" })
+    .text(`HM.No.: ${company.hallMarkNumner || ""}`, { align: "right" })
     .moveDown();
 
   doc
