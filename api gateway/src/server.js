@@ -1,12 +1,14 @@
 const express = require('express');
 const httpProxy = require('http-proxy-middleware');
 const app = express();
+const cors  = require('cors');
 
 const COMPANY_SERVICE = 'http://localhost:3001';
 const INVOICE_SERVICE = 'http://localhost:3002';
 const AUTH_SERVICE = 'http://localhost:3003';
 const PDF_SERVICE = 'http://localhost:3004';
 
+app.use(cors());
 app.use(express.json());
 
 // Authentication routes
@@ -27,9 +29,14 @@ app.use('/invoice', httpProxy.createProxyMiddleware({
   changeOrigin: true
 }));
 
+//pdf routes
 app.use('/pdf', httpProxy.createProxyMiddleware({
     target: PDF_SERVICE,
-    changeOrigin: true
+    changeOrigin: true,
+    onError: (err, req, res) => {
+      console.error('PDF Proxy Error:', err);
+      res.status(502).send('PDF Service Unavailable');
+    }
   }));
 
 app.listen(3000, () => {
