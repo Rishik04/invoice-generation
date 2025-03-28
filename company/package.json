@@ -1,5 +1,5 @@
 {
-  "name": "invoice",
+  "name": "company",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -7,17 +7,15 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon src/server.js"
   },
-  "keywords": [
-    "invoice"
-  ],
   "author": "Rishik",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "invoice": "file:",
-    "nodemon": "^3.1.9",
-    "pdfkit": "^0.16.0"
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.0",
+    "nodemon": "^3.1.9"
   }
 }
