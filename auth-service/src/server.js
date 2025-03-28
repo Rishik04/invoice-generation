@@ -50,7 +50,9 @@ app.post("/register", async (req, res) => {
     await user.save();
     res.send({ message: "User registered successfully" });
   } catch (err) {
-    console.log(err);
+    if (err.code === 11000) {
+      return res.status(409).send({ error: "Email already exists" });
+    }
   } finally {
     await db.disconnect();
   }
