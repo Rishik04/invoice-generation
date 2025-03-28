@@ -2,18 +2,38 @@ const mongoose = require("mongoose");
 
 // Company Schema
 const companySchema = new mongoose.Schema({
-  name: String,
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   address: String,
-  gstin: String,
-  hallMarkNumner: String,
-  email: String,
+  gstin: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  hallMarkNumner: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   phone: [String],
   state: String,
   stateCode: String,
   bankDetails: {
     name: String,
     branch: String,
-    accountNumber: String,
+    accountNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     ifsc: String,
   },
   termsConditions: [String],

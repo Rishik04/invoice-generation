@@ -30,6 +30,9 @@ const addCompany = async (req, res) => {
     await company.save();
     return successResponse(res, 200, "Successfully added company", company);
   } catch (error) {
+    if(error.code === 11000) {
+      return errorResponse(res, 400, "Company already exists", {});
+    }
     return errorResponse(res, 400, "Error adding company", error);
   } finally {
     await db.disconnect();
