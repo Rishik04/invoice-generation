@@ -8,7 +8,7 @@ const addCompany = async (req, res) => {
     await db.connect(); // Connect only when needed
     const company = new Company(req.body);
     await company.save();
-    return successResponse(res, company, 200);
+    return successResponse(res,200, "Successfully added company", company);
   } catch (error) {
     return errorResponse(res, 400, "Error adding company", error);
   } finally {
@@ -26,7 +26,7 @@ const getCompanyById = async (req, res) => {
     }
     const company = await Company.findById(req.params.id);
     if (!company) return errorResponse(res, 404, "Company not found", {});
-    return successResponse(res, company, 200);
+    return successResponse(res,200, "Founded company", company);
   } catch (error) {
     return errorResponse(res, 400, "Error getting company", error);
   } finally {
@@ -40,14 +40,14 @@ const updateCompany = async (req, res) => {
     await db.connect(); // Connect only when needed
 
     if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-      return errorResponse(res, "Invalid ID format", 400);
+      return errorResponse(res, 400, "Invalid ID format", {});
     }
 
     const company = await Company.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
     if (!company) return errorResponse(res, 404, "Company not found", {});
-    return successResponse(res, company, 200);
+    return successResponse(res,200, "successfully updated company", company);
   } catch (error) {
     return errorResponse(res, 400, "Error updating company", error);
   } finally {
