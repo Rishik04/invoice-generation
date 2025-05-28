@@ -5,9 +5,11 @@ const dotenv = require("dotenv");
 const { UserModel } = require("./model/user");
 const bycrypt = require("bcryptjs");
 const db = require("./db/db");
+const cors = require("cors");
 dotenv.config();
 
 app.use(express.json());
+app.use(cors())
 
 app.post("/login", async (req, res) => {
   try {
@@ -30,7 +32,7 @@ app.post("/login", async (req, res) => {
       SECRET_KEY,
       { expiresIn: "1h" }
     );
-    res.send({ token });
+    res.send({ success: true, token: token });
   } catch (err) {
     console.log(err);
   } finally {

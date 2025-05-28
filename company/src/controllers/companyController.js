@@ -11,6 +11,21 @@ const userAuthorized = (req) => {
   });
 };
 
+const getCompanyByEmail = async (req, res) => {
+  try {
+    await db.connect(); // Connect only when needed
+    const company = await Company.find({ email: req.user.email });
+    if (!company || company.length === 0) {
+      return errorResponse(res, 404, "Company not found", {});
+    }
+    return successResponse(res, 200, "Successfully found company", company);
+  } catch (error) {
+    return errorResponse(res, 403, "Unauthorized to access this company", {});
+  }finally {
+    await db.disconnect();
+  }
+};
+
 // Add a new company (connects to DB only when called)
 const addCompany = async (req, res) => {
   try {
@@ -19,7 +34,11 @@ const addCompany = async (req, res) => {
 
     // Check if the company already exists
     const existingCompany = await Company.findOne({
-      $or: [{ email: req.body.email }, { name: req.body.name }],
+      $or: [
+        { gstin: req.body.gstin },
+        { name: req.body.name },
+        { hallMarkNumber: req.body.hallMarkNumber },
+      ],
     });
 
     if (existingCompany) {
@@ -27,10 +46,12 @@ const addCompany = async (req, res) => {
     }
     // Validate the required fields
     const company = new Company(req.body);
+    company.user = req.user.userId;
     await company.save();
     return successResponse(res, 200, "Successfully added company", company);
   } catch (error) {
-    if(error.code === 11000) {
+    if (error.code === 11000) {
+      console.log(error)
       return errorResponse(res, 400, "Company already exists", {});
     }
     return errorResponse(res, 400, "Error adding company", error);
@@ -87,8 +108,11 @@ const updateCompany = async (req, res) => {
   }
 };
 
+// const deleteC
+
 module.exports = {
   addCompany,
   getCompanyById,
   updateCompany,
+  getCompanyByEmail,
 };

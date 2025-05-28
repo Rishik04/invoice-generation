@@ -13,7 +13,7 @@ const companySchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  hallMarkNumner: {
+  hallMarkNumber: {
     type: String,
     required: true,
     unique: true,
@@ -21,7 +21,6 @@ const companySchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
   },
   phone: [String],
   state: String,
@@ -37,6 +36,15 @@ const companySchema = new mongoose.Schema({
     ifsc: String,
   },
   termsConditions: [String],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 const Company = mongoose.model("Company", companySchema);

@@ -59,7 +59,6 @@ const createInvoice = async (req, res) => {
     generateCustomerInfo(doc, invoice.customer);
     generateItemsTable(doc, invoice.items);
     generateFooter(doc, company);
-
     doc.end();
   } catch (error) {
     console.error("Error generating invoice:", error);
@@ -72,7 +71,7 @@ const generateHeader = (doc, company, invoice) => {
   doc
     .fontSize(10)
     .text(`GSTIN: ${company.gstin}`, { align: "left" })
-    .text(`HM.No.: ${company.hallMarkNumner || ""}`, { align: "right" })
+    .text(`HM.No.: ${company.hallMarkNumber || ""}`, { align: "right" })
     .moveDown();
 
   doc
