@@ -68,11 +68,37 @@ const createInvoice = async (req, res) => {
 
 // Section generators
 const generateHeader = (doc, company, invoice) => {
+  const IMAGE_WIDTH = 150;
+  const PAGE_WIDTH = doc.page.width;
+  const MARGIN = 10;
+  IMAGE_HEIGHT = doc.y;
   doc
     .fontSize(10)
     .text(`GSTIN: ${company.gstin}`, { align: "left" })
-    .text(`HM.No.: ${company.hallMarkNumber || ""}`, { align: "right" })
+    .font("bold")
+    .fontSize(8)
+    .text(`CUSTOMER COPY`, doc.x, IMAGE_HEIGHT, { align: "right" })
+    .font("normal")
+    .fontSize(10)
+    .text(`# 8092404449`, { align: "right" })
+    .text(`# 7488123193`, { align: "right" })
+    .text(`HM.No.: ${company.hallMarkNumber || ""}`, doc.x, IMAGE_HEIGHT + 15, {
+      align: "left",
+    })
     .moveDown();
+
+  //bis and brand logo
+  doc
+    .image(path.join(IMAGE_PATH, "brand.png"), MARGIN, IMAGE_HEIGHT, {
+      width: 130,
+      align: "left",
+    })
+    .image(
+      path.join(IMAGE_PATH, "hallmark.png"),
+      PAGE_WIDTH - IMAGE_WIDTH - MARGIN,
+      IMAGE_HEIGHT,
+      { width: 130, align: "right" }
+    );
 
   doc
     .fontSize(25)
@@ -87,6 +113,8 @@ const generateHeader = (doc, company, invoice) => {
 };
 
 const generateCustomerInfo = (doc, customer) => {
+  const COLUMN_HEIGHT = doc.y-2;
+
   doc
     .font("bold")
     .fontSize(10)
@@ -100,6 +128,22 @@ const generateCustomerInfo = (doc, customer) => {
     .text(`State: ${customer.state}`)
     .text(`Code: ${customer.stateCode}`)
     .moveDown();
+
+  //generate invoice number and date
+  doc
+    .moveTo(370, COLUMN_HEIGHT)
+    .lineTo(370, doc.y)
+    .stroke();
+    
+  const HEIGHT = doc.y - COLUMN_HEIGHT;
+
+
+  // doc
+  //   .font("bold")
+  //   .text(`Invoice No: ${customer.invoiceNumber}`, 370, COLUMN_HEIGHT, { align: "right" })
+  //   .text(`Date: ${new Date(customer.date).toLocaleDateString()}`, {
+  //     align: "right",
+  //   });
 };
 
 const generateItemsTable = (doc, items) => {
@@ -213,10 +257,9 @@ const drawTotalsSection = (doc, config, totalAmount, totalWithGST) => {
 
   // vertical line amount with gst
   doc
-  .moveTo(margin.left + totalWidth - 80, margin.top)
-  .lineTo(margin.left + totalWidth - 80, y + 35)
-  .stroke();
-
+    .moveTo(margin.left + totalWidth - 80, margin.top)
+    .lineTo(margin.left + totalWidth - 80, y + 35)
+    .stroke();
 
   doc.text(formatMoney(gstAmount), margin.left + totalWidth - 62, y, {
     align: "right",
@@ -271,10 +314,22 @@ const generateFooter = (doc, company) => {
 
   // Bank details
   if (company.bankDetails) {
+    const HEIGHT = doc.y + 15;
+    const LEFT = doc.x;
+
     doc
+      .moveTo(LEFT, HEIGHT)
+      .lineTo(LEFT + 200, HEIGHT)
+      .lineTo(LEFT + 200, HEIGHT + 70)
+      .lineTo(LEFT, HEIGHT + 70)
+      .lineTo(LEFT, HEIGHT)
+      .stroke();
+
+    doc
+      .moveTo(15, HEIGHT)
       .moveDown(2)
       .fontSize(8)
-      .text("Bank Details:", { underline: true })
+      .text("Bank Details:", LEFT + 10, HEIGHT + 10, { underline: true })
       .text(`Bank Name: ${company.bankDetails.name}`)
       .text(`Branch: ${company.bankDetails.branch}`)
       .text(`A/c No: ${company.bankDetails.accountNumber}`)

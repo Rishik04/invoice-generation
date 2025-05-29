@@ -1,4 +1,4 @@
-import { useTheme } from "@/components/theme-provider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,14 +6,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Moon, Sun, BellRing, Search, Settings, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { BellRing, LogOutIcon, Menu, Moon, Search, Settings, Sun, User } from "lucide-react";
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarTrigger } from "../ui/menubar";
 import Sidebar from "./Sidebar";
 
 const Header = () => {
-//   const { setTheme } = useTheme();
+  //   const { setTheme } = useTheme();
 
   return (
     <header className="border-b sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -33,7 +33,7 @@ const Header = () => {
             <Sidebar isMobile />
           </SheetContent>
         </Sheet>
-        
+
         <div className="flex-1 flex justify-center md:justify-start">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -44,14 +44,14 @@ const Header = () => {
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="outline" size="icon" className="relative">
             <BellRing className="h-4 w-4" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive"></span>
             <span className="sr-only">Notifications</span>
           </Button>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -72,12 +72,29 @@ const Header = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
-          <Button variant="ghost" size="icon">
-            <Settings className="h-4 w-4" />
-            <span className="sr-only">Settings</span>
-          </Button>
-          
+
+          {/* <Button variant="ghost" size="icon"> */}
+          <Menubar>
+            <MenubarMenu>
+              <MenubarTrigger>
+                <Settings className="h-4 w-4" />
+                <span className="sr-only">Settings</span>
+              </MenubarTrigger>
+              <MenubarContent align="end">
+                <MenubarItem>
+                  <User className="h-4 w-4" />
+                  Profile
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem>
+                  <LogOutIcon className="h-4 w-4" />
+                  Logout
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
+          {/* </Button> */}
+
           <Avatar className="h-9 w-9">
             <AvatarImage src="https://github.com/shadcn.png" alt="User" />
             <AvatarFallback>UR</AvatarFallback>

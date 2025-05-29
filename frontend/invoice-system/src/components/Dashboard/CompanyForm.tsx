@@ -58,7 +58,18 @@ const companyFormSchema = z.object({
       .min(1, "IFSC is required")
       .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format"),
   }),
-  termsConditions: z.array(z.string()).optional(),
+  termsConditions: z.preprocess(
+  (val) => {
+    if (typeof val === "string") {
+      return val
+        .split(/[\n,]/)
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
+    }
+    return val; // Return as-is if already an array
+  },
+  z.array(z.string()).optional()
+),
 });
 
 type CompanyFormInputs = z.infer<typeof companyFormSchema>;
