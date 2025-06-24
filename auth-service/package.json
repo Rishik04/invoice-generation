@@ -1,5 +1,5 @@
 {
-  "name": "company",
+  "name": "auth-service",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -10,8 +10,8 @@
   "author": "Rishik",
   "license": "ISC",
   "dependencies": {
-    "body-parser": "^2.2.0",
-    "company": "file:",
+    "auth-service": "file:",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

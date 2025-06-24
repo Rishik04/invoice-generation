@@ -1,10 +1,12 @@
-const { addCompany, getCompanyById, updateCompany } = require("../controllers/companyController");
+const auth = require("../auth/auth");
+const { addCompany, getCompanyById, updateCompany, getCompanyByEmail } = require("../controllers/companyController");
 
 const router = require("express").Router();
 
-router.post("/add", addCompany);
-router.get("/:id", getCompanyById);
-router.put("/update/:id", updateCompany);
+router.get("/", auth, getCompanyByEmail)
+router.post("/add", auth, addCompany);
+router.put("/update/:id", auth, updateCompany);
+router.get("/:id", auth, getCompanyById);
 
 
 module.exports = router;
