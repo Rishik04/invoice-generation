@@ -1,6 +1,21 @@
-FROM node:18
+# Use an official Node.js runtime as a parent image
+FROM node:18-alpine
+
+# Set the working directory in the container
 WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json from the 'invoice' service directory
 COPY services/invoice-service/package*.json ./
+
+# Install app dependencies
 RUN npm install
-COPY services/invoice-service/ ./
+
+# Copy the rest of the application's source code from the 'invoice' service directory
+# This is the crucial step that copies your src folder, including public/fonts
+COPY services/invoice-service/ .
+
+# Make the service port available
+EXPOSE 3004
+
+# Run the app when the container launches
 CMD ["npm", "start"]

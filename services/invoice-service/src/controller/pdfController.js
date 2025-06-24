@@ -11,9 +11,10 @@ let TOTAL_AMOUNT = 0;
 
 // Constants
 const DEFAULT_FONTS = {
-  normal: path.resolve(__dirname, "../public/fonts/arial.ttf"),
-  bold: path.resolve(__dirname, "../public/fonts/G_ari_bd.ttf"),
+  Normal: path.join(__dirname, '..', 'public', 'fonts', 'arial.ttf'),
+  Bold: path.join(__dirname, '..', 'public', 'fonts', 'G_ari_bd.TTF'),
 };
+
 const IMAGE_PATH = path.resolve(__dirname, "../public/images");
 const INVOICES_DIR = path.join(__dirname, "../public/invoices");
 const FILE_URI = `localhost:3004/public/invoices/`;
@@ -44,9 +45,16 @@ const createInvoice = async (req, res) => {
     const { invoice, company } = req.body;
     const doc = new PDFDocument({ size: "A4", margin: 10, layout: "portrait" });
 
+     if (!fs.existsSync(DEFAULT_FONTS.Normal)) {
+        throw new Error(`Font file not found at: ${DEFAULT_FONTS.Normal}`);
+    }
+    if (!fs.existsSync(DEFAULT_FONTS.Bold)) {
+        throw new Error(`Font file not found at: ${DEFAULT_FONTS.Bold}`);
+    }
+
     // Register fonts
-    doc.registerFont("normal", DEFAULT_FONTS.normal);
-    doc.registerFont("bold", DEFAULT_FONTS.bold);
+    doc.registerFont("normal", DEFAULT_FONTS.Normal);
+    doc.registerFont("bold", DEFAULT_FONTS.Bold);
 
     // Set up response headers
     const fileName = `invoice_${invoice.invoiceNumber}.pdf`;
