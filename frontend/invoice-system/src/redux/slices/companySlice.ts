@@ -128,10 +128,7 @@ export const fetchCompanies = createAsyncThunk(
 // Add a new company
 export const addCompany = createAsyncThunk(
   "company/addCompany",
-  async (
-    newCompanyData: Omit<Company, "_id">,
-    { rejectWithValue, getState }
-  ) => {
+  async (newCompanyData: Company, { rejectWithValue, getState }) => {
     const token = (getState() as RootState).auth.token;
 
     if (!token) {
@@ -240,7 +237,7 @@ export const generateInvoice = createAsyncThunk(
         }
       );
       // Assuming the backend returns a success message or URL to the generated invoice
-      return (response) || "Invoice generated successfully!";
+      return response || "Invoice generated successfully!";
     } catch (error: any) {
       if (axios.isAxiosError(error) && error.response) {
         return rejectWithValue(
@@ -249,6 +246,34 @@ export const generateInvoice = createAsyncThunk(
       }
       return rejectWithValue(
         error.message || "Network error generating invoice."
+      );
+    }
+  }
+);
+export const generateInvoiceNumber = createAsyncThunk(
+  "company/generateInvoiceNumber",
+  async (_, { rejectWithValue, getState }) => {
+    const token = (getState() as RootState).auth.token;
+
+    if (!token) {
+      return rejectWithValue("Authentication token not found. Please log in.");
+    }
+
+    try {
+      const response = await axios.get(
+        `${INVOICE_API_BASE_URL}/generate-invoice-number`,
+        getAuthHeaders(token)
+      );
+      // Assuming the backend returns a success message or URL to the generated invoice
+      return response.data || "Invoice number generated successfully!";
+    } catch (error: any) {
+      if (axios.isAxiosError(error) && error.response) {
+        return rejectWithValue(
+          error.response.data.message || "Failed to generate invoice number."
+        );
+      }
+      return rejectWithValue(
+        error.message || "Network error generating invoice number."
       );
     }
   }
@@ -332,6 +357,18 @@ const companySlice = createSlice({
         state.invoiceLoading = false;
         state.invoiceError = action.payload as string;
         state.invoiceSuccess = null;
+      })
+      // Generate Invoice number
+      .addCase(generateInvoiceNumber.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(generateInvoiceNumber.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(generateInvoiceNumber.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });

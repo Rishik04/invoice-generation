@@ -1,0 +1,6 @@
+FROM node:18
+WORKDIR /usr/src/app
+COPY api-gateway/package*.json ./
+RUN npm install
+COPY api-gateway/ ./
+CMD ["npm", "start"]

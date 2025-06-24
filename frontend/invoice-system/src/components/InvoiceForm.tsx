@@ -29,7 +29,7 @@ import { PlusCircle, Trash2, Home, Loader2 } from "lucide-react";
 
 // Redux Hooks and Slices
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { Company, generateInvoice } from "@/redux/slices/companySlice";
+import { Company, generateInvoice, generateInvoiceNumber } from "@/redux/slices/companySlice";
 import { DatePicker } from "./custom-ui/DatePicker";
 
 // --- Zod Schemas for Invoice Form ---
@@ -65,13 +65,6 @@ const generateInvoiceFormSchema = z.object({
     .min(1, "At least one item is required for the invoice"),
   customer: invoiceCustomerSchema,
 });
-
-const generateUniqueInvoiceNumber = (): string => {
-  const prefix = "INV";
-  const timestamp = Date.now();
-  const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase(); // 5 random alphanumeric chars
-  return `${prefix}-${timestamp}-${randomSuffix}`;
-};
 
 type GenerateInvoiceFormInputs = z.infer<typeof generateInvoiceFormSchema>;
 
@@ -165,6 +158,16 @@ const InvoiceForm: React.FC = () => {
   const selectedCompany = useAppSelector(
     (state) => state.company.selectedCompany
   );
+  const [generateInvoiceNumberState, setGenerateInvoiceNumberState] = React.useState<string>("");
+
+  useEffect(() => {
+    const generateUniqueInvoiceNumber = async () => {
+      const data = await dispatch(generateInvoiceNumber());
+      console.log("Generated Invoice Number:", data.payload);
+      setGenerateInvoiceNumberState(data.payload);
+    };
+    generateUniqueInvoiceNumber();
+  }, [])
 
   const {
     register,
@@ -176,7 +179,7 @@ const InvoiceForm: React.FC = () => {
   } = useForm<GenerateInvoiceFormInputs>({
     resolver: zodResolver(generateInvoiceFormSchema),
     defaultValues: {
-      invoiceNumber: generateUniqueInvoiceNumber(),
+      invoiceNumber: generateInvoiceNumberState || "",
       date: new Date().toISOString().split("T")[0],
       items: [
         {
@@ -292,14 +295,16 @@ const InvoiceForm: React.FC = () => {
         amountInWords,
       },
       company: {
+        _id: selectedCompany._id,
         name: selectedCompany.name,
         address: selectedCompany.address,
         gstin: selectedCompany.gstin,
         email: selectedCompany.email,
-        phone: selectedCompany.phone.join(", "), // Ensure phone is string for invoice
+        phone: selectedCompany.phone, // Ensure phone is string for invoice
         state: selectedCompany.state,
         bankDetails: selectedCompany.bankDetails,
         termsConditions: selectedCompany.termsConditions,
+        hallMarkNumber: selectedCompany.hallMarkNumber,
       } as Company, // Type assertion to match original structure
     };
 
@@ -336,8 +341,7 @@ const InvoiceForm: React.FC = () => {
     } catch (error: any) {
       console.error("Error during PDF generation:", error);
       alert(
-        `An error occurred while generating the PDF: ${
-          error.message || "Unknown error. Check console."
+        `An error occurred while generating the PDF: ${error.message || "Unknown error. Check console."
         }`
       );
     }

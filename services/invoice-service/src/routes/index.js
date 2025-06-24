@@ -1,5 +1,5 @@
 const express = require("express");
-const { createInvoice } = require("../controller/invoiceController");
+const { createInvoice, generateInvoiceNumber } = require("../controller/pdfController");
 
 const router = require("express").Router();
 
@@ -8,5 +8,6 @@ router.get("/", (req, res) => {
 });
 
 router.post("/generate-invoice", createInvoice);
+router.get("/generate-invoice-number", generateInvoiceNumber);
 
 module.exports = router;

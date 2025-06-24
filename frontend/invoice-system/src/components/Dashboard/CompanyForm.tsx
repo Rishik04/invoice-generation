@@ -40,10 +40,23 @@ const companyFormSchema = z.object({
     ),
   hallMarkNumber: z.string().min(1, "Hallmark Number is required"),
   email: z.string().email("Invalid email address").min(1, "Email is required"),
-  phone: z
-    .string()
-    .min(1, "Phone is required")
-    .regex(/^\d+$/, "Phone must contain only digits"),
+  phone: z.preprocess(
+    (val) => {
+      if (typeof val === "string") {
+        return val
+          .split(/[\n,]/)
+          .map((s) => s.trim())
+          .filter((s) => s !== "");
+      }
+      return val; // Return as-is if already an array
+    },
+    z.array(
+      z
+        .string()
+        .min(1, "Phone number is required")
+        .regex(/^\d+$/, "Phone must contain only digits")
+    ).min(1, "At least one phone number is required")
+  ),
   state: z.string().min(1, "State is required"),
   stateCode: z.string().min(1, "State Code is required"),
   bankDetails: z.object({
@@ -59,17 +72,17 @@ const companyFormSchema = z.object({
       .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format"),
   }),
   termsConditions: z.preprocess(
-  (val) => {
-    if (typeof val === "string") {
-      return val
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter((s) => s !== "");
-    }
-    return val; // Return as-is if already an array
-  },
-  z.array(z.string()).optional()
-),
+    (val) => {
+      if (typeof val === "string") {
+        return val
+          .split(/[\n,]/)
+          .map((s) => s.trim())
+          .filter((s) => s !== "");
+      }
+      return val; // Return as-is if already an array
+    },
+    z.array(z.string()).optional()
+  ),
 });
 
 type CompanyFormInputs = z.infer<typeof companyFormSchema>;
@@ -119,7 +132,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
         gstin: "",
         hallMarkNumber: "",
         email: "",
-        phone: "",
+        phone: [""],
         state: "",
         stateCode: "",
         bankDetails: {
@@ -136,16 +149,19 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
   const onSubmit = async (data: CompanyFormInputs) => {
     const companyDataToSend = {
       ...data,
-      phone: data.phone
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s !== ""),
+      phone:
+        typeof data.phone === "string"
+          ? data.phone
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s !== "")
+          : data.phone,
       termsConditions:
         typeof data.termsConditions === "string"
           ? data.termsConditions
-              .split(/[\n,]/)
-              .map((s) => s.trim())
-              .filter((s) => s !== "")
+            .split(/[\n,]/)
+            .map((s) => s.trim())
+            .filter((s) => s !== "")
           : data.termsConditions,
     };
 
@@ -175,7 +191,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                 Company Information
               </h3>
               <Separator className="mb-4" />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <FormField
                   control={form.control}
@@ -190,7 +206,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="gstin"
@@ -204,7 +220,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="hallMarkNumber"
@@ -218,7 +234,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="address"
@@ -232,7 +248,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="state"
@@ -246,7 +262,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="stateCode"
@@ -262,14 +278,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                 />
               </div>
             </div>
-            
+
             {/* Contact Information Section */}
             <div>
               <h3 className="text-lg font-semibold text-primary mb-2">
                 Contact Information
               </h3>
               <Separator className="mb-4" />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <FormField
                   control={form.control}
@@ -288,7 +304,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="phone"
@@ -307,14 +323,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                 />
               </div>
             </div>
-            
+
             {/* Bank Details Section */}
             <div>
               <h3 className="text-lg font-semibold text-primary mb-2">
                 Bank Details
               </h3>
               <Separator className="mb-4" />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <FormField
                   control={form.control}
@@ -329,7 +345,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="bankDetails.branch"
@@ -343,7 +359,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="bankDetails.accountNumber"
@@ -360,7 +376,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="bankDetails.ifsc"
@@ -376,14 +392,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                 />
               </div>
             </div>
-            
+
             {/* Terms & Conditions Section */}
             <div>
               <h3 className="text-lg font-semibold text-primary mb-2">
                 Terms & Conditions
               </h3>
               <Separator className="mb-4" />
-              
+
               <FormField
                 control={form.control}
                 name="termsConditions"
@@ -410,7 +426,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
                 )}
               />
             </div>
-            
+
             {error && (
               <div className="text-destructive text-sm text-center bg-destructive/10 p-3 rounded-md">
                 {error}
@@ -419,7 +435,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onClose }) => {
           </form>
         </Form>
       </div>
-      
+
       <DialogFooter className="p-6 pt-4 border-t flex justify-end gap-2">
         <Button
           type="button"

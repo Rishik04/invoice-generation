@@ -1,0 +1,44 @@
+# No version tag is needed for modern Docker Compose.
+services:
+  # The new frontend service definition.
+  frontend:
+    build:
+      context: ./frontend/invoice-system
+      dockerfile: Dockerfile
+    ports:
+      # Exposes the Vite dev server port to your local machine.
+      - "5173:5173"
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - company-service
+      - invoice-service
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth
+    ports:
+      - "3003:3003"
+
+  company-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.company
+    ports:
+      - "3001:3001"
+
+  invoice-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.invoice
+    ports:
+      - "3004:3004"

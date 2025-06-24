@@ -1,82 +1,44 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAppSelector } from "./redux/hooks"; // Import your custom Redux hooks
-import Dashboard from "./components/Dashboard";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import Authentication from "./components/Authentication";
 import DashTest from "./components/DashTest";
-import Authentication from "./components/Authentication"; // Assuming this is your login/auth component
 import InvoiceForm from "./components/InvoiceForm";
-import DashboardLayout from "./components/layouts/DashboardLayout"
+import DashboardLayout from "./components/layouts/DashboardLayout";
+import { useAppSelector } from "./redux/hooks";
+import CustomerPage from "./components/Customer";
+import InvoicePage from "./components/Invoice";
 
-// A simple component to protect routes
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
   const { isAuthenticated, loading } = useAppSelector((state) => state.auth);
 
-  // You might want a loading spinner here while auth state is being determined
   if (loading) {
-    return (
-      <div style={{ textAlign: "center", marginTop: "50px" }}>
-        Loading authentication...
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
-  if (!isAuthenticated) {
-    // Redirect to the login page if not authenticated
-    return <Navigate to="/login" replace />;
-  }
-
-  return children; // Render the child component if authenticated
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 function App() {
-  const { isAuthenticated } = useAppSelector((state) => state.auth); // Get auth state for root redirect
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* Login Route */}
         <Route path="/login" element={<Authentication />} />
-
-        {/* Protected Dashboard Route */}
-        <Route path="/" element={<DashboardLayout />}>
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashTest />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Default Route: Redirect based on authentication status */}
         <Route
           path="/"
           element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/:id/invoice"
-          element={
             <ProtectedRoute>
-              <InvoiceForm />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Navigate to="/dashboard" />} />
+          <Route path="dashboard" element={<DashTest />} />
+          <Route path=":id/invoice" element={<InvoiceForm />} />
+          <Route path="customers" element={<CustomerPage />} />
+          <Route path="invoices" element={<InvoicePage />} />
         </Route>
-
-        {/* Optional: Add a 404 Not Found page */}
-        <Route
-          path="*"
-          element={
-            <h1 style={{ textAlign: "center", marginTop: "50px" }}>
-              404 - Page Not Found
-            </h1>
-          }
-        />
+        <Route path="*" element={<h1>404 - Page Not Found</h1>} />
       </Routes>
     </BrowserRouter>
   );
