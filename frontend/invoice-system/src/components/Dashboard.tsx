@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useNavigate } from "react-router-dom";
 
-// Shadcn UI Components
+// Shadcn UI Components & Icons
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea"; // Correctly import Textarea
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -24,8 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 
 // Redux Hooks and Slices
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
@@ -38,9 +40,9 @@ import {
   setSelectedCompany,
   clearCompanyMessages,
 } from "@/redux/slices/companySlice";
-import { useNavigate } from "react-router";
 
 // --- Zod Schema for Company Form Validation ---
+// Refined schema for better validation of comma-separated strings
 const companyFormSchema = z.object({
   name: z.string().min(1, "Company Name is required"),
   address: z.string().min(1, "Address is required"),
@@ -56,8 +58,13 @@ const companyFormSchema = z.object({
   email: z.string().email("Invalid email address").min(1, "Email is required"),
   phone: z
     .string()
-    .min(1, "Phone is required")
-    .regex(/^\d+$/, "Phone must contain only digits"),
+    .min(1, "Phone number is required.")
+    .refine((value) => /^[\d\s,]+$/.test(value), {
+        message: "Phone must contain only digits, commas, and spaces.",
+    })
+    .refine((value) => value.split(',').every(phone => /^\d{10,15}$/.test(phone.trim())), {
+        message: "Each phone number must be between 10 and 15 digits.",
+    }),
   state: z.string().min(1, "State is required"),
   stateCode: z.string().min(1, "State Code is required"),
   bankDetails: z.object({
@@ -72,7 +79,8 @@ const companyFormSchema = z.object({
       .min(1, "IFSC is required")
       .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format"),
   }),
-  termsConditions: z.array(z.string()).optional(),
+  // Changed to a single string to match the Textarea component
+  termsConditions: z.string().optional(),
 });
 
 type CompanyFormInputs = z.infer<typeof companyFormSchema>;
@@ -97,6 +105,7 @@ const Dashboard: React.FC = () => {
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormInputs>({
     resolver: zodResolver(companyFormSchema),
+    // Set default values consistent with the form fields
     defaultValues: {
       name: "",
       address: "",
@@ -112,41 +121,30 @@ const Dashboard: React.FC = () => {
         accountNumber: "",
         ifsc: "",
       },
-      termsConditions: [""],
+      termsConditions: "",
     },
   });
 
+  // Fetch companies on initial component mount
   useEffect(() => {
     dispatch(fetchCompanies());
   }, [dispatch]);
 
+  // --- Dialog and Form Handling ---
+
   const openFormDialog = (company?: Company) => {
     dispatch(setSelectedCompany(company || null));
     if (company) {
+      // Pre-fill form for editing, joining arrays into strings for form fields
       reset({
         ...company,
         phone: company.phone ? company.phone.join(", ") : "",
-        termsConditions: company.termsConditions ?? [],
-        bankDetails: { ...company.bankDetails }, // Ensure deep copy for nested objects
+        termsConditions: company.termsConditions ? company.termsConditions.join("\n") : "",
+        bankDetails: { ...company.bankDetails },
       });
     } else {
-      reset({
-        name: "",
-        address: "",
-        gstin: "",
-        hallMarkNumber: "",
-        email: "",
-        phone: "",
-        state: "",
-        stateCode: "",
-        bankDetails: {
-          name: "",
-          branch: "",
-          accountNumber: "",
-          ifsc: "",
-        },
-        termsConditions: [],
-      });
+      // Reset to default values for a new company
+      reset();
     }
     setIsFormDialogOpen(true);
   };
@@ -161,19 +159,11 @@ const Dashboard: React.FC = () => {
   const onSubmit: SubmitHandler<CompanyFormInputs> = async (data) => {
     dispatch(clearCompanyMessages());
 
+    // Transform form data to match the backend model before dispatching
     const companyDataToSend = {
       ...data,
-      phone: data.phone
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s !== ""),
-      termsConditions:
-        typeof data.termsConditions === "string"
-          ? data.termsConditions
-              .split(/[\n,]/)
-              .map((s) => s.trim())
-              .filter((s) => s !== "")
-          : data.termsConditions,
+      phone: data.phone.split(",").map((s) => s.trim()).filter(Boolean),
+      termsConditions: data.termsConditions?.split(/[\n,]/).map((s) => s.trim()).filter(Boolean) || [],
     };
 
     let actionResult;
@@ -185,6 +175,7 @@ const Dashboard: React.FC = () => {
       actionResult = await dispatch(addCompany(companyDataToSend));
     }
 
+    // If the API call was successful, refetch companies and close the dialog
     if (actionResult.meta.requestStatus === "fulfilled") {
       dispatch(fetchCompanies());
       closeFormDialog();
@@ -212,37 +203,36 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const selectCompanyToggle = (company) => {
-    console.log("Selected company:", company);
+  const handleSelectCompany = (company: Company) => {
     dispatch(setSelectedCompany(company));
     navigate(`/${company._id}/invoice`);
   };
 
   return (
-    <div className="flex flex-col items-center p-5 min-h-screen bg-gray-50">
-      <div className="w-full max-w-4xl mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Company Dashboard</h1>
+    <div className="flex flex-col items-center p-4 md:p-6 min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="w-full max-w-6xl mb-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Company Dashboard</h1>
         <Button
           onClick={() => openFormDialog()}
-          className="flex items-center gap-2 px-4 py-2"
+          className="flex items-center gap-2"
         >
           <PlusCircle className="h-4 w-4" /> Add New Company
         </Button>
       </div>
 
-      <div className="flex flex-col gap-5 w-full max-w-4xl">
-        <Card className="shadow-md">
-          <CardHeader className="pb-4 border-b border-gray-200">
-            <CardTitle className="text-xl text-gray-700">
+      <div className="w-full max-w-6xl">
+        <Card className="shadow-md dark:bg-gray-800">
+          <CardHeader className="pb-4 border-b border-gray-200 dark:border-gray-700">
+            <CardTitle className="text-xl text-gray-700 dark:text-gray-200">
               Your Companies
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {loading && companies.length === 0 && (
-              <p className="text-center p-6 text-gray-500 flex items-center justify-center">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading
-                companies...
-              </p>
+              <div className="text-center p-6 text-gray-500 flex items-center justify-center">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <span>Loading companies...</span>
+              </div>
             )}
             {error && (
               <p className="text-red-500 text-sm p-4 text-center">{error}</p>
@@ -255,73 +245,42 @@ const Dashboard: React.FC = () => {
             {companies.length > 0 && (
               <div className="overflow-x-auto">
                 <Table className="min-w-full">
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Company Name
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        GSTIN
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hallmark No.
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Address
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Phone
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        State
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bank Account
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </TableHead>
+                  <TableHeader className="bg-gray-50 dark:bg-gray-700">
+                    <TableRow>
+                      <TableHead>Company Name</TableHead>
+                      <TableHead>GSTIN</TableHead>
+                      <TableHead>Hallmark No.</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Bank Account</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {companies.map((company) => (
-                      <TableRow key={company._id} className="hover:bg-gray-50">
-                        <TableCell
-                          className="py-3 px-4 font-medium text-gray-900"
-                          onClick={() => selectCompanyToggle(company)}
-                          style={{
-                            cursor: "pointer",
-                            textDecoration: "underline",
-                          }}
-                        >
-                          {company.name}
+                      <TableRow key={company._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <TableCell className="font-medium">
+                          {/* Use a link-styled button for better accessibility and theme consistency */}
+                          <Button variant="link" onClick={() => handleSelectCompany(company)} className="p-0 h-auto font-medium">
+                            {company.name}
+                          </Button>
                         </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.gstin}
+                        <TableCell>{company.gstin}</TableCell>
+                        <TableCell>{company.hallMarkNumber}</TableCell>
+                        <TableCell>{company.address}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{company.email}</span>
+                            <span className="text-xs text-gray-500">{company.phone.join(", ")}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.hallMarkNumber}
+                        <TableCell>
+                           <div className="flex flex-col">
+                                <span>{company.bankDetails.accountNumber}</span>
+                                <span className="text-xs text-gray-500">{company.bankDetails.name}</span>
+                           </div>
                         </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.address}
-                        </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.email}
-                        </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.phone.join(", ")}
-                        </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.state} ({company.stateCode})
-                        </TableCell>
-                        <TableCell className="py-3 px-4 text-gray-700">
-                          {company.bankDetails.accountNumber} (
-                          {company.bankDetails.name})
-                        </TableCell>
-                        <TableCell className="py-3 px-4 text-right">
+                        <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
@@ -351,13 +310,10 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Add/Edit Company Dialog */}
+      {/* Add/Edit Company Dialog with improved scrolling for long forms */}
       <Dialog open={isFormDialogOpen} onOpenChange={closeFormDialog}>
-        {/* Added flex-col and max-h-screen to DialogContent */}
         <DialogContent className="sm:max-w-xl md:max-w-2xl flex flex-col max-h-[90vh]">
           <DialogHeader className="p-6 pb-4">
-            {" "}
-            {/* Added padding to header */}
             <DialogTitle className="text-2xl font-bold">
               {selectedCompany ? "Edit Company" : "Add New Company"}
             </DialogTitle>
@@ -367,306 +323,130 @@ const Dashboard: React.FC = () => {
                 : "Enter details for your new company."}
             </DialogDescription>
           </DialogHeader>
-          {/* New scrollable wrapper div for the form content */}
           <div className="flex-grow overflow-y-auto px-6">
-            {" "}
-            {/* flex-grow ensures it takes available space */}
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"
-            >
-              {/* Company Details */}
-              <div className="col-span-full">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Company Information
-                </h3>
-                <Separator className="mb-4" />
-              </div>
-              <div>
-                <Label htmlFor="name" className="mb-1 block">
-                  Company Name
-                </Label>
-                <Input id="name" {...register("name")} className="w-full" />
-                {errors.name && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="gstin" className="mb-1 block">
-                  GSTIN
-                </Label>
-                <Input id="gstin" {...register("gstin")} className="w-full" />
-                {errors.gstin && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.gstin.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="hallMarkNumber" className="mb-1 block">
-                  Hallmark Number
-                </Label>
-                <Input
-                  id="hallMarkNumber"
-                  {...register("hallMarkNumber")}
-                  className="w-full"
-                />
-                {errors.hallMarkNumber && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.hallMarkNumber.message}
-                  </p>
-                )}
-              </div>
-              <div className="col-span-full">
-                <Label htmlFor="address" className="mb-1 block">
-                  Address
-                </Label>
-                <Input
-                  id="address"
-                  {...register("address")}
-                  className="w-full"
-                />
-                {errors.address && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.address.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="state" className="mb-1 block">
-                  State
-                </Label>
-                <Input id="state" {...register("state")} className="w-full" />
-                {errors.state && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.state.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="stateCode" className="mb-1 block">
-                  State Code
-                </Label>
-                <Input
-                  id="stateCode"
-                  {...register("stateCode")}
-                  className="w-full"
-                />
-                {errors.stateCode && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.stateCode.message}
-                  </p>
-                )}
-              </div>
+            <form id="company-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+               {/* Company Details */}
+               <div className="col-span-full">
+                 <h3 className="text-lg font-semibold text-gray-700 mb-2 dark:text-gray-200">Company Information</h3>
+                 <Separator className="mb-4" />
+               </div>
+               <div>
+                 <Label htmlFor="name">Company Name</Label>
+                 <Input id="name" {...register("name")} />
+                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+               </div>
+                <div>
+                 <Label htmlFor="gstin">GSTIN</Label>
+                 <Input id="gstin" {...register("gstin")} />
+                 {errors.gstin && <p className="text-red-500 text-xs mt-1">{errors.gstin.message}</p>}
+               </div>
+                <div>
+                 <Label htmlFor="hallMarkNumber">Hallmark Number</Label>
+                 <Input id="hallMarkNumber" {...register("hallMarkNumber")} />
+                 {errors.hallMarkNumber && <p className="text-red-500 text-xs mt-1">{errors.hallMarkNumber.message}</p>}
+               </div>
+               <div className="col-span-full">
+                 <Label htmlFor="address">Address</Label>
+                 <Input id="address" {...register("address")} />
+                 {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
+               </div>
+                <div>
+                 <Label htmlFor="state">State</Label>
+                 <Input id="state" {...register("state")} />
+                 {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state.message}</p>}
+               </div>
+                <div>
+                 <Label htmlFor="stateCode">State Code</Label>
+                 <Input id="stateCode" {...register("stateCode")} />
+                 {errors.stateCode && <p className="text-red-500 text-xs mt-1">{errors.stateCode.message}</p>}
+               </div>
 
               {/* Contact Details */}
-              <div className="col-span-full mt-4">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Contact Information
-                </h3>
-                <Separator className="mb-4" />
-              </div>
-              <div>
-                <Label htmlFor="email" className="mb-1 block">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email")}
-                  className="w-full"
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="phone" className="mb-1 block">
-                  Phone (comma-separated if multiple)
-                </Label>
-                <Input
-                  id="phone"
-                  type="text"
-                  {...register("phone")}
-                  className="w-full"
-                />
-                {errors.phone && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
+               <div className="col-span-full mt-4">
+                 <h3 className="text-lg font-semibold text-gray-700 mb-2 dark:text-gray-200">Contact Information</h3>
+                 <Separator className="mb-4" />
+               </div>
+               <div>
+                 <Label htmlFor="email">Email</Label>
+                 <Input id="email" type="email" {...register("email")} />
+                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+               </div>
+               <div>
+                 <Label htmlFor="phone">Phone (comma-separated)</Label>
+                 <Input id="phone" type="text" {...register("phone")} />
+                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+               </div>
 
-              {/* Bank Details */}
+               {/* Bank Details */}
               <div className="col-span-full mt-4">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Bank Details
-                </h3>
-                <Separator className="mb-4" />
-              </div>
-              <div>
-                <Label htmlFor="bankDetails.name" className="mb-1 block">
-                  Bank Name
-                </Label>
-                <Input
-                  id="bankDetails.name"
-                  {...register("bankDetails.name")}
-                  className="w-full"
-                />
-                {errors.bankDetails?.name && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.bankDetails.name.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="bankDetails.branch" className="mb-1 block">
-                  Branch
-                </Label>
-                <Input
-                  id="bankDetails.branch"
-                  {...register("bankDetails.branch")}
-                  className="w-full"
-                />
-                {errors.bankDetails?.branch && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.bankDetails.branch.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label
-                  htmlFor="bankDetails.accountNumber"
-                  className="mb-1 block"
-                >
-                  Account Number
-                </Label>
-                <Input
-                  id="bankDetails.accountNumber"
-                  {...register("bankDetails.accountNumber")}
-                  className="w-full"
-                />
-                {errors.bankDetails?.accountNumber && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.bankDetails.accountNumber.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="bankDetails.ifsc" className="mb-1 block">
-                  IFSC Code
-                </Label>
-                <Input
-                  id="bankDetails.ifsc"
-                  {...register("bankDetails.ifsc")}
-                  className="w-full"
-                />
-                {errors.bankDetails?.ifsc && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.bankDetails.ifsc.message}
-                  </p>
-                )}
-              </div>
+                 <h3 className="text-lg font-semibold text-gray-700 mb-2 dark:text-gray-200">Bank Details</h3>
+                 <Separator className="mb-4" />
+               </div>
+               <div>
+                 <Label htmlFor="bankDetails.name">Bank Name</Label>
+                 <Input id="bankDetails.name" {...register("bankDetails.name")} />
+                 {errors.bankDetails?.name && <p className="text-red-500 text-xs mt-1">{errors.bankDetails.name.message}</p>}
+               </div>
+               <div>
+                 <Label htmlFor="bankDetails.branch">Branch</Label>
+                 <Input id="bankDetails.branch" {...register("bankDetails.branch")} />
+                 {errors.bankDetails?.branch && <p className="text-red-500 text-xs mt-1">{errors.bankDetails.branch.message}</p>}
+               </div>
+               <div>
+                 <Label htmlFor="bankDetails.accountNumber">Account Number</Label>
+                 <Input id="bankDetails.accountNumber" {...register("bankDetails.accountNumber")} />
+                 {errors.bankDetails?.accountNumber && <p className="text-red-500 text-xs mt-1">{errors.bankDetails.accountNumber.message}</p>}
+               </div>
+               <div>
+                 <Label htmlFor="bankDetails.ifsc">IFSC Code</Label>
+                 <Input id="bankDetails.ifsc" {...register("bankDetails.ifsc")} />
+                 {errors.bankDetails?.ifsc && <p className="text-red-500 text-xs mt-1">{errors.bankDetails.ifsc.message}</p>}
+               </div>
 
-              {/* Terms and Conditions */}
+               {/* Terms and Conditions */}
               <div className="col-span-full mt-4">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Terms & Conditions
-                </h3>
-                <Separator className="mb-4" />
-              </div>
-              <div className="col-span-full">
-                <Label htmlFor="termsConditions" className="mb-1 block">
-                  Terms & Conditions (comma or new-line separated)
-                </Label>
-                <Input
-                  as="textarea"
-                  id="termsConditions"
-                  className="w-full min-h-[80px]"
-                  {...register("termsConditions", {
-                    setValueAs: (value) => {
-                      if (typeof value !== "string") return [];
-                      return value
-                        .split(/[\n,]/)
-                        .map((s) => s.trim())
-                        .filter((s) => s !== "");
-                    },
-                  })}
-                />
-                {errors.termsConditions && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.termsConditions.message}
-                  </p>
-                )}
-              </div>
+                 <h3 className="text-lg font-semibold text-gray-700 mb-2 dark:text-gray-200">Terms & Conditions</h3>
+                 <Separator className="mb-4" />
+               </div>
+               <div className="col-span-full">
+                 <Label htmlFor="termsConditions">Terms (one per line)</Label>
+                 {/* Use the correct Textarea component */}
+                 <Textarea
+                    id="termsConditions"
+                    className="w-full min-h-[100px]"
+                    {...register("termsConditions")}
+                 />
+                 {errors.termsConditions && <p className="text-red-500 text-xs mt-1">{errors.termsConditions.message}</p>}
+               </div>
 
-              {error && (
-                <p className="text-red-500 text-sm col-span-full text-center mt-4">
-                  {error}
-                </p>
-              )}
+               {error && (
+                 <p className="text-red-500 text-sm col-span-full text-center mt-4">{error}</p>
+               )}
             </form>
-          </div>{" "}
-          {/* End of scrollable wrapper div */}
-          <DialogFooter className="p-6 pt-4 border-t flex justify-end gap-2">
-            {" "}
-            {/* Added padding and border-t */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={closeFormDialog}
-              className="px-4 py-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading || isSubmitting}
-              onClick={handleSubmit(onSubmit)}
-              className="px-4 py-2"
-            >
-              {loading || isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
+          </div>
+          <DialogFooter className="p-6 pt-4 border-t dark:border-gray-700 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={closeFormDialog}>Cancel</Button>
+            <Button type="submit" form="company-form" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {selectedCompany ? "Save Changes" : "Add Company"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog (unchanged, as it's typically shorter) */}
+      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={closeDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Confirm Deletion
-            </DialogTitle>
+            <DialogTitle className="text-2xl font-bold">Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this company? This action cannot
-              be undone.
+              Are you sure you want to delete this company? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={closeDeleteDialog}
-              className="px-4 py-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={loading}
-              className="px-4 py-2"
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
+            <Button variant="outline" onClick={closeDeleteDialog}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
             </Button>
           </DialogFooter>
@@ -677,3 +457,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+

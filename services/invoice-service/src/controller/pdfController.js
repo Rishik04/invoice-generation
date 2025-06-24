@@ -2,6 +2,12 @@ const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 const { convertAmountToIndianWords } = require("../utils/converision");
+const { disconnect, connect } = require("../db/db");
+const Invoice = require("../model/invoice");
+const DailySequence = require("../model/sequence");
+const { format } = require("date-fns");
+
+let TOTAL_AMOUNT = 0;
 
 // Constants
 const DEFAULT_FONTS = {
@@ -10,6 +16,7 @@ const DEFAULT_FONTS = {
 };
 const IMAGE_PATH = path.resolve(__dirname, "../public/images");
 const INVOICES_DIR = path.join(__dirname, "../public/invoices");
+const FILE_URI = `localhost:3004/public/invoices/`;
 
 // Helper functions
 const formatMoney = (value) => {
@@ -56,10 +63,18 @@ const createInvoice = async (req, res) => {
 
     // Generate invoice content
     generateHeader(doc, company, invoice);
-    generateCustomerInfo(doc, invoice.customer);
+    generateCustomerInfo(doc, invoice.customer, invoice.date);
     generateItemsTable(doc, invoice.items);
     generateFooter(doc, company);
     doc.end();
+
+    await saveInvoice({
+      companyId: company._id,
+      invoiceNumber: invoice.invoiceNumber,
+      customerName: invoice.customer.name,
+      amount: TOTAL_AMOUNT,
+      filePath: FILE_URI + fileName,
+    });
   } catch (error) {
     console.error("Error generating invoice:", error);
     res.status(500).send("Error generating invoice");
@@ -74,17 +89,21 @@ const generateHeader = (doc, company, invoice) => {
   IMAGE_HEIGHT = doc.y;
   doc
     .fontSize(10)
-    .text(`GSTIN: ${company.gstin}`, { align: "left" })
     .font("bold")
-    .fontSize(8)
-    .text(`CUSTOMER COPY`, doc.x, IMAGE_HEIGHT, { align: "right" })
+    .text(`GSTIN: `, { align: "left", continued: true })
     .font("normal")
-    .fontSize(10)
-    .text(`# 8092404449`, { align: "right" })
-    .text(`# 7488123193`, { align: "right" })
-    .text(`HM.No.: ${company.hallMarkNumber || ""}`, doc.x, IMAGE_HEIGHT + 15, {
-      align: "left",
+    .text(`${company.gstin}`)
+    .font("bold")
+    .text(`CUSTOMER COPY`, doc.x, IMAGE_HEIGHT, {
+      align: "right",
+      underline: true,
     })
+    .font("normal")
+    .text(`${company.phone}`, doc.x, doc.y + 2, { align: "right" })
+    .font("bold")
+    .text(`HM.No.: `, doc.x, doc.y - 10, { align: "left", continued: true })
+    .font("normal")
+    .text(`${company.hallMarkNumber || ""}`)
     .moveDown();
 
   //bis and brand logo
@@ -112,13 +131,13 @@ const generateHeader = (doc, company, invoice) => {
     .moveDown(2);
 };
 
-const generateCustomerInfo = (doc, customer) => {
-  const COLUMN_HEIGHT = doc.y-2;
+const generateCustomerInfo = (doc, customer, date) => {
+  const COLUMN_HEIGHT = doc.y - 2;
 
   doc
     .font("bold")
     .fontSize(10)
-    .text("Customer Name & Address:", 12, doc.y, { underline: true })
+    .text("Customer Name & Address:", 12, doc.y - 5, { underline: true })
     .moveDown()
     .text(customer.name, 12, doc.y)
     .font("normal")
@@ -131,19 +150,59 @@ const generateCustomerInfo = (doc, customer) => {
 
   //generate invoice number and date
   doc
-    .moveTo(370, COLUMN_HEIGHT)
-    .lineTo(370, doc.y)
+    .moveTo(320, COLUMN_HEIGHT - 10)
+    .lineTo(320, doc.y - 5)
     .stroke();
-    
-  const HEIGHT = doc.y - COLUMN_HEIGHT;
 
+  // Set your fonts (ensure they are registered correctly if custom)
 
-  // doc
-  //   .font("bold")
-  //   .text(`Invoice No: ${customer.invoiceNumber}`, 370, COLUMN_HEIGHT, { align: "right" })
-  //   .text(`Date: ${new Date(customer.date).toLocaleDateString()}`, {
-  //     align: "right",
-  //   });
+  // Y position to align the first row
+  const infoY = COLUMN_HEIGHT;
+
+  // Bill No
+  doc
+    .font("bold")
+    .text("Bill No: ", 325, infoY, { continued: true })
+    .font("normal")
+    .text("123");
+
+  // Date (below Bill No)
+  doc
+    .font("bold")
+    .text("Date: ", 450, doc.y - 10, { continued: true })
+    .font("normal")
+    .text(date);
+
+  // YEAR (below Date)
+  const year = new Date(date).getFullYear();
+  doc
+    .font("bold")
+    .text("YEAR: ", 325, doc.y + 5, { continued: true })
+    .font("normal")
+    .text(`${year}-${year + 1}`);
+
+  doc
+    .moveTo(320, doc.y + 5)
+    .lineTo(doc.page.width - 7, doc.y + 5)
+    .stroke();
+
+  // Consignee Details
+  doc.font("bold").text("Consignee Details :", 325, doc.y + 6);
+
+  doc
+    .moveTo(320, doc.y + 2)
+    .lineTo(doc.page.width - 7, doc.y + 2)
+    .stroke();
+
+  // Customer details
+  doc
+    .font("bold")
+    .text(`${customer.name}`, 325, doc.y + 5)
+    .font("normal")
+    .text(`${customer.address}`, 325, doc.y + 10)
+    .text(`Ph # ${customer.phone}`, 325, doc.y + 10);
+
+  doc.y = COLUMN_HEIGHT + 110; // Adjust y position for the table
 };
 
 const generateItemsTable = (doc, items) => {
@@ -289,6 +348,8 @@ const drawTotalsSection = (doc, config, totalAmount, totalWithGST) => {
     .moveTo(margin.left, y + 15)
     .lineTo(margin.left + totalWidth, y + 15)
     .stroke();
+
+  TOTAL_AMOUNT = totalWithGST.toFixed(2);
 };
 
 const generateFooter = (doc, company) => {
@@ -309,7 +370,7 @@ const generateFooter = (doc, company) => {
   // Add logo if exists
   const logoPath = path.join(IMAGE_PATH, "logo.png");
   if (fs.existsSync(logoPath)) {
-    doc.image(logoPath, 490, doc.y - 60, { width: 100, align: "center" });
+    doc.image(logoPath, 490, doc.y - 100, { width: 100, align: "center" });
   }
 
   // Bank details
@@ -329,8 +390,8 @@ const generateFooter = (doc, company) => {
       .moveTo(15, HEIGHT)
       .moveDown(2)
       .fontSize(8)
-      .text("Bank Details:", LEFT + 10, HEIGHT + 10, { underline: true })
-      .text(`Bank Name: ${company.bankDetails.name}`)
+      .text("Bank Details:", LEFT + 70, HEIGHT + 10, { underline: true })
+      .text(`Bank Name: ${company.bankDetails.name}`, LEFT + 10, HEIGHT + 22)
       .text(`Branch: ${company.bankDetails.branch}`)
       .text(`A/c No: ${company.bankDetails.accountNumber}`)
       .text(`IFSC Code: ${company.bankDetails.ifsc}`);
@@ -426,4 +487,40 @@ const drawTableWithGrid = (doc, config) => {
     .stroke();
 };
 
-module.exports = { createInvoice };
+const saveInvoice = async (invoice) => {
+  try {
+    await connect();
+    await Invoice.create(invoice);
+    return;
+  } catch (error) {
+    console.error("Error saving invoice:", error);
+  } finally {
+    await disconnect();
+  }
+};
+
+const generateInvoiceNumber = async (req, res) => {
+  try {
+    await connect();
+    const currentDateString = format(new Date(), "yyyyMMdd");
+
+    const updatedSequence = await DailySequence.findByIdAndUpdate(
+      currentDateString,
+      { $inc: { sequence_value: 1 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const sequenceNumber = updatedSequence.sequence_value;
+
+    const paddedSequence = String(sequenceNumber).padStart(4, "0");
+
+    return res.send(`${currentDateString}-${paddedSequence}`);
+  } catch (error) {
+    console.error("Error generating invoice number:", error);
+    throw error;
+  } finally {
+    await disconnect();
+  }
+};
+
+module.exports = { createInvoice, generateInvoiceNumber };

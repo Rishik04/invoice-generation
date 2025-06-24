@@ -14,9 +14,12 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "invoice": "file:",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.15.1",
     "nodemon": "^3.1.9",
     "pdfkit": "^0.16.0"
   }
