@@ -3,8 +3,8 @@ import axios from "axios";
 import { RootState } from "../store"; // Import RootState to access other parts of the store
 
 // Define the API base URLs
-const COMPANY_API_BASE_URL = "http://localhost:3001";
-const INVOICE_API_BASE_URL = "http://localhost:3004"; // New API for invoice generation
+const COMPANY_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/company`;
+const INVOICE_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/invoice`; // New API for invoice generation
 
 // 1. Define Interfaces to match Mongoose Schema
 export interface BankDetails {

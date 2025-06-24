@@ -7,7 +7,6 @@ const dotenv = require("dotenv");
 dotenv.config(); 
 
 app.use(cors());
-app.use(express.json());
 
 // Authentication routes
 app.use(
