@@ -1,7 +1,7 @@
-const jwt = require("jsonwebtoken");
-const { errorResponse } = require("../response/response");
+import * as jwt from "jsonwebtoken";
+import { errorResponse } from "../response/response.js";
 
-const auth = (req, res, next) => {
+export const auth = (req, res, next) => {
   const token = req.headers["authorization"]?.split("Bearer ")[1];
   if (token) {
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -16,5 +16,3 @@ const auth = (req, res, next) => {
     res.redirect("/login");
   }
 };
-
-module.exports = auth;
