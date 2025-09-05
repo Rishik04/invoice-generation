@@ -6,7 +6,7 @@ const tenantSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  ownerUserId: {
+  ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,

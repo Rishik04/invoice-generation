@@ -47,11 +47,13 @@ app.post("/register", async (req, res) => {
   try {
     await db.connect();
     const { name, email, password, companyName } = req.body;
-    const hashedPassword = await bycrypt.hash(password, 10);
+    // const hashedPassword = await bycrypt.hash(password, 10);
+
     const user = await new UserModel({
       name,
       email,
-      password: hashedPassword,
+      password,
+      role: "OWNER"
     }).save();
     await createTenant(user._id, companyName);
     res.send({ message: "User registered successfully" });

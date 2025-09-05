@@ -1,5 +1,5 @@
 import axios from "axios";
-import { TENANT_SERVICE_URL } from "../configs/config";
+import { TENANT_SERVICE_URL } from "../configs/config.js";
 
 export const createTenant = async (ownerId, name) => {
   try {

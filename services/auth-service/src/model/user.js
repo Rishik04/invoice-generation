@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    role: Object.values(ROLE),
+    enum: Object.values(ROLE),
     required: true
   },
   createdAt: {
