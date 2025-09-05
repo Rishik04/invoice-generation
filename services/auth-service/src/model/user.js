@@ -26,7 +26,8 @@ const userSchema = new mongoose.Schema({
     default: Date.now,
   },
   tenantId:{
-    type: mongoose.Schema.Types.ObjectId
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant'
   }
 });
 

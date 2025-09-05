@@ -2,10 +2,11 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import cors from "cors";
-import bcrypt from "bcryptjs";
+import * as bycrypt from "bcryptjs";
 import * as db from "./db/db.js";
 import UserModel from "./model/user.js";
-import { createTenant } from "./services/tenant-service.js";
+import { createTenant, getTenantId } from "./services/tenant-service.js";
+import { emitUserCreated } from "./services/message-producer.js";
 
 const app = express();
 
@@ -13,6 +14,8 @@ dotenv.config();
 
 app.use(express.json());
 app.use(cors());
+
+// consumeTenantCreated().catch(console.error);
 
 app.post("/login", async (req, res) => {
   try {
@@ -43,19 +46,46 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.post("/register", async (req, res) => {
+app.post("/onboard", async (req, res) => {
   try {
     await db.connect();
     const { name, email, password, companyName } = req.body;
-    // const hashedPassword = await bycrypt.hash(password, 10);
+    const hashedPassword = await bycrypt.hash(password, 10);
+    const tenant = await createTenant(companyName);
 
     const user = await new UserModel({
       name,
       email,
-      password,
-      role: "OWNER"
+      password: hashedPassword,
+      role: "OWNER",
+      tenantId: tenant.response._id,
     }).save();
-    await createTenant(user._id, companyName);
+
+    await emitUserCreated(user);
+
+    res.send({ message: "User registered successfully" });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).send({ error: "Email already exists" });
+    }
+  } finally {
+    await db.disconnect();
+  }
+});
+
+app.post("/:id/register", async (req, res) => {
+  try {
+    await db.connect();
+    const { name, email, password } = req.body;
+    const hashedPassword = await bycrypt.hash(password, 10);
+    const { tenantId } = await getTenantId(req.params.id);
+    const user = await new UserModel({
+      name,
+      email,
+      password: hashedPassword,
+      role: "USER",
+      tenantId,
+    }).save();
     res.send({ message: "User registered successfully" });
   } catch (err) {
     if (err.code === 11000) {

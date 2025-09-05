@@ -4,8 +4,13 @@ import cors from "cors";
 const PORT = 8080;
 const app = express();
 import dotenv from "dotenv";
+import { consumeUserCreated } from "./services/message-consumer.js";
+import { connect } from "./db/db.js";
 
 dotenv.config();
+await connect();
+
+consumeUserCreated().catch(console.error);
 
 app.use(express.json());
 app.use(cors());

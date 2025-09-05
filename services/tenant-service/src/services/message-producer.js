@@ -2,13 +2,12 @@ import { Kafka } from "kafkajs";
 
 const kafka = new Kafka({
   clientId: "tenant-service",
-  brokers: ["localhoist:9092"],
+  brokers: ["localhost:9092"],
 });
 
 const Producer = kafka.producer();
-emitTenantCreated();
 
-const emitTenantCreated = async (tenant) => {
+export const emitTenantCreated = async (tenant) => {
   await Producer.connect();
 
   await Producer.send({

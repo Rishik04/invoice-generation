@@ -9,7 +9,11 @@ const tenantSchema = new mongoose.Schema({
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
+  },
+  slug:{
+    type: String,
     required: true,
+    unique: true
   },
   createdAt: {
     type: Date,
@@ -23,4 +27,4 @@ const tenantSchema = new mongoose.Schema({
 
 const TenantModel = mongoose.model("Tenant", tenantSchema);
 
-export default TenantModel
+export default TenantModel;
