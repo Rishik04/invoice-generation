@@ -7,42 +7,36 @@ const companySchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  address: String,
+  address: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Address",
+  },
+  bank: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Bank",
+  },
   gstin: {
     type: String,
-    required: true,
     unique: true,
+    sparse: true,
   },
   hallMarkNumber: {
     type: String,
-    required: true,
     unique: true,
+    sparse: true,
   },
   email: {
     type: String,
-    required: true,
   },
   phone: [String],
-  state: String,
-  stateCode: String,
-  bankDetails: {
-    name: String,
-    branch: String,
-    accountNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    ifsc: String,
-  },
   termsConditions: [String],
   createdAt: {
     type: Date,
     default: Date.now,
   },
-  user: {
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Tenant",
     required: true,
   },
 });

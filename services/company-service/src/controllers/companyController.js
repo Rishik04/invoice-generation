@@ -1,4 +1,5 @@
 import CompanyModel from "../model/companyModel.js";
+import { errorResponse, successResponse } from "../response/response.js";
 
 // Check if the user is authorized to access this company
 const userAuthorized = (req) => {
@@ -11,16 +12,14 @@ const userAuthorized = (req) => {
 
 export const getCompanyByEmail = async (req, res) => {
   try {
-    await db.connect(); // Connect only when needed
     const company = await CompanyModel.find({ email: req.user.email });
     if (!company || company.length === 0) {
-      return errorResponse(res, 404, "Company not found", {});
+      return successResponse(res, 200, "No Company found", {});
     }
     return successResponse(res, 200, "Successfully found company", company);
   } catch (error) {
+    console.log(error)
     return errorResponse(res, 403, "Unauthorized to access this company", {});
-  } finally {
-    await db.disconnect();
   }
 };
 

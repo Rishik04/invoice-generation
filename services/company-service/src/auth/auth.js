@@ -1,4 +1,4 @@
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { errorResponse } from "../response/response.js";
 
 export const auth = (req, res, next) => {

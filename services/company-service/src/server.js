@@ -3,11 +3,13 @@ import cors from "cors";
 import router from "./routes/index.js";
 import * as db from "./db/db.js";
 import * as env from "dotenv";
+import { consumeTenantCreated } from "./services/message-consumer.js";
 
+const app = express();
 env.config();
 await db.connect();
 
-const app = express();
+consumeTenantCreated().catch(console.error);
 app.use(express.json());
 app.use(cors());
 
