@@ -1,12 +1,9 @@
-# No version tag is needed for modern Docker Compose.
 services:
-  # The new frontend service definition.
   frontend:
     build:
       context: ./frontend/invoice-system
       dockerfile: Dockerfile
     ports:
-      # Exposes the Vite dev server port to your local machine.
       - "5173:5173"
     depends_on:
       - api-gateway
@@ -42,3 +39,15 @@ services:
       dockerfile: Dockerfile.invoice
     ports:
       - "3004:3004"
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    depends_on:
+      - frontend
+      - api-gateway
+    command: start --all --config /etc/ngrok.yml
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}

@@ -1,15 +1,18 @@
-const express = require("express");
-const jwt = require("jsonwebtoken");
+import express from "express";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+import cors from "cors";
+import bcrypt from "bcryptjs";
+import * as db from "./db/db.js";
+import UserModel from "./model/user.js";
+import { createTenant } from "./services/tenant-service.js";
+
 const app = express();
-const dotenv = require("dotenv");
-const { UserModel } = require("./model/user");
-const bycrypt = require("bcryptjs");
-const db = require("./db/db");
-const cors = require("cors");
+
 dotenv.config();
 
 app.use(express.json());
-app.use(cors())
+app.use(cors());
 
 app.post("/login", async (req, res) => {
   try {
@@ -43,13 +46,14 @@ app.post("/login", async (req, res) => {
 app.post("/register", async (req, res) => {
   try {
     await db.connect();
-    const { email, password } = req.body;
+    const { name, email, password, companyName } = req.body;
     const hashedPassword = await bycrypt.hash(password, 10);
-    const user = new UserModel({
+    const user = await new UserModel({
+      name,
       email,
       password: hashedPassword,
-    });
-    await user.save();
+    }).save();
+    await createTenant(user._id, companyName);
     res.send({ message: "User registered successfully" });
   } catch (err) {
     if (err.code === 11000) {

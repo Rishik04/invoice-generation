@@ -1,0 +1,9 @@
+version: 2
+tunnels:
+  frontend:
+    proto: http
+    addr: frontend:5173
+
+  api:
+    proto: http
+    addr: api-gateway:3000

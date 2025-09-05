@@ -1,10 +1,35 @@
-const e = require("express");
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
+import { ROLE } from "./role.js";
 
-const User = mongoose.Schema({
-  password: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    role: Object.values(ROLE),
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  tenantId:{
+    type: mongoose.Schema.Types.ObjectId
+  }
 });
 
-const UserModel = mongoose.model("User", User);
-exports.UserModel = UserModel;
+const UserModel = mongoose.model("User", userSchema);
+
+export default UserModel;

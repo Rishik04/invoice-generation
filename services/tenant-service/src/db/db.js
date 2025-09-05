@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import * as env from 'dotenv'
+import * as dotenv from "dotenv";
 
-env.config();
+dotenv.config();
 
 // Connect to MongoDB
 export const connect = async () => {

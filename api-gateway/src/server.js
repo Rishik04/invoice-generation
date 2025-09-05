@@ -12,7 +12,7 @@ app.use(cors());
 app.use(
   "/auth",
   httpProxy.createProxyMiddleware({
-    target: "http://auth-service:3003",
+    target: 'http://localhost:3003',
     changeOrigin: true,
   })
 );
@@ -21,7 +21,7 @@ app.use(
 app.use(
   "/company",
   httpProxy.createProxyMiddleware({
-    target: "http://company-service:3001",
+    target: "http://localhost:3001",
     changeOrigin: true,
   })
 );
@@ -30,7 +30,7 @@ app.use(
 app.use(
   "/invoice",
   httpProxy.createProxyMiddleware({
-    target: "http://invoice-service:3004",
+    target: "http://localhost:3004",
     changeOrigin: true,
   })
 );
