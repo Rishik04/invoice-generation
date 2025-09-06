@@ -1,11 +1,16 @@
-const bodyParser = require("body-parser");
-const express = require("express");
-const router = require("./routes");
-const app = express();
-const cors = require("cors");
+import express from "express";
+import cors from "cors";
+import router from "./routes/index.js";
+import * as db from "./db/db.js";
+import * as env from "dotenv";
+import { consumeTenantCreated } from "./services/message-consumer.js";
 
+const app = express();
+env.config();
+await db.connect();
+
+consumeTenantCreated().catch(console.error);
 app.use(express.json());
-app.use(bodyParser.json());
 app.use(cors());
 
 app.use("/", router);
