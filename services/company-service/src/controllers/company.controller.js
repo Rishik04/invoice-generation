@@ -1,5 +1,11 @@
 import CompanyModel from "../model/companyModel.js";
 import { errorResponse, successResponse } from "../response/response.js";
+import { createAddressInDB } from "../services/address.service.js";
+import { createBankInDB } from "../services/bank.service.js";
+import {
+  createCompany,
+  getCompanyByTenantId,
+} from "../services/company.service.js";
 
 // Check if the user is authorized to access this company
 const userAuthorized = (req) => {
@@ -10,15 +16,15 @@ const userAuthorized = (req) => {
   });
 };
 
-export const getCompanyByEmail = async (req, res) => {
+export const getCompany = async (req, res) => {
   try {
-    const company = await CompanyModel.find({ email: req.user.email });
+    const company = await getCompanyByTenantId(req.user.tenantId);
     if (!company || company.length === 0) {
       return successResponse(res, 200, "No Company found", {});
     }
     return successResponse(res, 200, "Successfully found company", company);
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return errorResponse(res, 403, "Unauthorized to access this company", {});
   }
 };
@@ -42,9 +48,31 @@ export const addCompany = async (req, res) => {
       return errorResponse(res, 400, "Company/email already exists", {});
     }
     // Validate the required fields
-    const company = new CompanyModel(req.body);
-    company.user = req.user.userId;
-    await company.save();
+    const {
+      city,
+      state,
+      street,
+      landmark,
+      pincode,
+      statecode,
+      bankName,
+      branch,
+      ifsc,
+      accountNumber,
+    } = req.body;
+
+    //save address
+    const addressData = { city, state, street, landmark, pincode, statecode };
+    const address = await createAddressInDB(addressData);
+
+    //save bank
+    const bankData = { bankName, branch, ifsc, accountNumber };
+    const bank = await createBankInDB(bankData);
+
+    //save company
+    const companyData = { ...req.body, address: address._id, bank: bank._id };
+    const company = await createCompany(companyData);
+
     return successResponse(res, 200, "Successfully added company", company);
   } catch (error) {
     if (error.code === 11000) {
