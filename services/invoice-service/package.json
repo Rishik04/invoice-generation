@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon src/server.js"
@@ -18,6 +19,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "invoice": "file:",
+    "kafkajs": "^2.2.4",
     "mongodb": "^6.16.0",
     "mongoose": "^8.15.1",
     "nodemon": "^3.1.9",

@@ -21,5 +21,11 @@ export const createBankInDB = async (data) => {
 //update bank details
 export const updateBankInDB = async (id, data) => {
   logger.info("updating bank details with id " + id);
-  return await BankModel.findByIdAndUpdate(id, data);
+  const bank = await BankModel.findByIdAndUpdate(id, data);
+
+  const company = await CompanyModel.findOne({ bank: address._id })
+    .populate("address")
+    .populate("bank");
+  await sendCompanyEvent("company.updated", company.toObject());
+  return bank;
 };

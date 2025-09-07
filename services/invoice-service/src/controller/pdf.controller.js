@@ -1,22 +1,19 @@
-const PDFDocument = require("pdfkit");
-const fs = require("fs");
-const path = require("path");
-const { convertAmountToIndianWords } = require("../utils/converision");
-const { disconnect, connect } = require("../db/db");
-const Invoice = require("../model/invoice");
-const DailySequence = require("../model/sequence");
-const { format } = require("date-fns");
+import fs from "fs";
+import path from "path";
+import PDFDocument from "pdfkit";
+import Invoice from "../model/invoice.js";
+import { convertAmountToIndianWords } from "../utils/converision.js";
 
 let TOTAL_AMOUNT = 0;
 
 // Constants
 const DEFAULT_FONTS = {
-  Normal: path.join(__dirname, '..', 'public', 'fonts', 'arial.ttf'),
-  Bold: path.join(__dirname, '..', 'public', 'fonts', 'G_ari_bd.TTF'),
+  Normal: "../public/font/arial.ttf",
+  Bold: "../public/fonts/G_ari_bd.TTF",
 };
 
-const IMAGE_PATH = path.resolve(__dirname, "../public/images");
-const INVOICES_DIR = path.join(__dirname, "../public/invoices");
+const IMAGE_PATH = "../public/images";
+const INVOICES_DIR = "../public/invoices";
 const FILE_URI = `localhost:3004/public/invoices/`;
 
 // Helper functions
@@ -40,16 +37,16 @@ const ensureDirectoryExists = (dirPath) => {
 };
 
 // Main invoice creation function
-const createInvoice = async (req, res) => {
+export const createInvoice = async (req, res) => {
   try {
     const { invoice, company } = req.body;
     const doc = new PDFDocument({ size: "A4", margin: 10, layout: "portrait" });
 
-     if (!fs.existsSync(DEFAULT_FONTS.Normal)) {
-        throw new Error(`Font file not found at: ${DEFAULT_FONTS.Normal}`);
+    if (!fs.existsSync(DEFAULT_FONTS.Normal)) {
+      throw new Error(`Font file not found at: ${DEFAULT_FONTS.Normal}`);
     }
     if (!fs.existsSync(DEFAULT_FONTS.Bold)) {
-        throw new Error(`Font file not found at: ${DEFAULT_FONTS.Bold}`);
+      throw new Error(`Font file not found at: ${DEFAULT_FONTS.Bold}`);
     }
 
     // Register fonts
@@ -507,7 +504,7 @@ const saveInvoice = async (invoice) => {
   }
 };
 
-const generateInvoiceNumber = async (req, res) => {
+export const generateInvoiceNumber = async (req, res) => {
   try {
     await connect();
     const currentDateString = format(new Date(), "yyyyMMdd");
@@ -530,5 +527,3 @@ const generateInvoiceNumber = async (req, res) => {
     await disconnect();
   }
 };
-
-module.exports = { createInvoice, generateInvoiceNumber };

@@ -1,10 +1,7 @@
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-
-dotenv.config();
+import mongoose from "mongoose";
 
 // Connect to MongoDB
-const connect = async () => {
+export const connect = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("MongoDB connected successfully!");
@@ -14,7 +11,7 @@ const connect = async () => {
   }
 };
 
-const disconnect = async () => {
+export const disconnect = async () => {
   try {
     await mongoose.disconnect();
     console.log("MongoDB disconnected.");
@@ -23,5 +20,3 @@ const disconnect = async () => {
     throw error;
   }
 };
-
-module.exports = { connect, disconnect };
