@@ -6,6 +6,7 @@ import {
   createCompany,
   getCompanyByTenantId,
 } from "../services/company.service.js";
+import { logger } from "../utils/logger.js";
 
 // Check if the user is authorized to access this company
 const userAuthorized = (req) => {
@@ -17,6 +18,7 @@ const userAuthorized = (req) => {
 };
 
 export const getCompany = async (req, res) => {
+  logger.info("Get company by tenant id" + req.user.tenantId);
   try {
     const company = await getCompanyByTenantId(req.user.tenantId);
     if (!company || company.length === 0) {
