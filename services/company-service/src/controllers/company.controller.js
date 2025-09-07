@@ -1,5 +1,13 @@
 import CompanyModel from "../model/companyModel.js";
 import { errorResponse, successResponse } from "../response/response.js";
+import { createAddressInDB } from "../services/address.service.js";
+import { createBankInDB } from "../services/bank.service.js";
+import {
+  createCompany,
+  getCompanyByTenantId,
+  updateCompanyDetails,
+} from "../services/company.service.js";
+import { logger } from "../utils/logger.js";
 
 // Check if the user is authorized to access this company
 const userAuthorized = (req) => {
@@ -10,20 +18,22 @@ const userAuthorized = (req) => {
   });
 };
 
-export const getCompanyByEmail = async (req, res) => {
+//get company
+export const getCompany = async (req, res) => {
+  logger.info("Get company by tenant id" + req.user.tenantId);
   try {
-    const company = await CompanyModel.find({ email: req.user.email });
+    const company = await getCompanyByTenantId(req.user.tenantId);
     if (!company || company.length === 0) {
       return successResponse(res, 200, "No Company found", {});
     }
     return successResponse(res, 200, "Successfully found company", company);
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return errorResponse(res, 403, "Unauthorized to access this company", {});
   }
 };
 
-// Add a new company (connects to DB only when called)
+// for internal use only : to be removed
 export const addCompany = async (req, res) => {
   try {
     await db.connect(); // Connect only when needed
@@ -42,9 +52,31 @@ export const addCompany = async (req, res) => {
       return errorResponse(res, 400, "Company/email already exists", {});
     }
     // Validate the required fields
-    const company = new CompanyModel(req.body);
-    company.user = req.user.userId;
-    await company.save();
+    const {
+      city,
+      state,
+      street,
+      landmark,
+      pincode,
+      statecode,
+      bankName,
+      branch,
+      ifsc,
+      accountNumber,
+    } = req.body;
+
+    //save address
+    const addressData = { city, state, street, landmark, pincode, statecode };
+    const address = await createAddressInDB(addressData);
+
+    //save bank
+    const bankData = { bankName, branch, ifsc, accountNumber };
+    const bank = await createBankInDB(bankData);
+
+    //save company
+    const companyData = { ...req.body, address: address._id, bank: bank._id };
+    const company = await createCompany(companyData);
+
     return successResponse(res, 200, "Successfully added company", company);
   } catch (error) {
     if (error.code === 11000) {
@@ -57,7 +89,7 @@ export const addCompany = async (req, res) => {
   }
 };
 
-// Get company by ID (connects only when called)
+//needs to check the flow
 export const getCompanyById = async (req, res) => {
   try {
     await db.connect(); // Connect only when needed
@@ -80,33 +112,19 @@ export const getCompanyById = async (req, res) => {
   }
 };
 
-// Update company (connects only when called)
+//update company
 export const updateCompany = async (req, res) => {
+  logger.info("update the company details");
   try {
-    await db.connect(); // Connect only when needed
+    // if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    //   return errorResponse(res, 400, "Invalid ID format", {});
+    // }
+    const data = { ...req.body, tenantId: req.user.tenantId };
 
-    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-      return errorResponse(res, 400, "Invalid ID format", {});
-    }
-
-    if (!userAuthorized(req)) {
-      return errorResponse(res, 403, "Unauthorized to access this company", {});
-    }
-
-    const company = await CompanyModel.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-      }
-    );
+    const company = await updateCompanyDetails(data);
     if (!company) return errorResponse(res, 404, "Company not found", {});
     return successResponse(res, 200, "successfully updated company", company);
   } catch (error) {
     return errorResponse(res, 400, "Error updating company", error);
-  } finally {
-    await db.disconnect();
   }
 };
-
-// const deleteC

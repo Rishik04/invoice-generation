@@ -17,7 +17,7 @@ const addressSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  stateCode: {
+  statecode: {
     type: String,
     required: true,
   },
