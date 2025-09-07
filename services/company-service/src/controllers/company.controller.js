@@ -5,6 +5,7 @@ import { createBankInDB } from "../services/bank.service.js";
 import {
   createCompany,
   getCompanyByTenantId,
+  updateCompanyDetails,
 } from "../services/company.service.js";
 import { logger } from "../utils/logger.js";
 
@@ -17,6 +18,7 @@ const userAuthorized = (req) => {
   });
 };
 
+//get company
 export const getCompany = async (req, res) => {
   logger.info("Get company by tenant id" + req.user.tenantId);
   try {
@@ -31,7 +33,7 @@ export const getCompany = async (req, res) => {
   }
 };
 
-// Add a new company (connects to DB only when called)
+// for internal use only : to be removed
 export const addCompany = async (req, res) => {
   try {
     await db.connect(); // Connect only when needed
@@ -87,7 +89,7 @@ export const addCompany = async (req, res) => {
   }
 };
 
-// Get company by ID (connects only when called)
+//needs to check the flow
 export const getCompanyById = async (req, res) => {
   try {
     await db.connect(); // Connect only when needed
@@ -110,33 +112,19 @@ export const getCompanyById = async (req, res) => {
   }
 };
 
-// Update company (connects only when called)
+//update company
 export const updateCompany = async (req, res) => {
+  logger.info("update the company details");
   try {
-    await db.connect(); // Connect only when needed
+    // if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    //   return errorResponse(res, 400, "Invalid ID format", {});
+    // }
+    const data = { ...req.body, tenantId: req.user.tenantId };
 
-    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-      return errorResponse(res, 400, "Invalid ID format", {});
-    }
-
-    if (!userAuthorized(req)) {
-      return errorResponse(res, 403, "Unauthorized to access this company", {});
-    }
-
-    const company = await CompanyModel.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-      }
-    );
+    const company = await updateCompanyDetails(data);
     if (!company) return errorResponse(res, 404, "Company not found", {});
     return successResponse(res, 200, "successfully updated company", company);
   } catch (error) {
     return errorResponse(res, 400, "Error updating company", error);
-  } finally {
-    await db.disconnect();
   }
 };
-
-// const deleteC

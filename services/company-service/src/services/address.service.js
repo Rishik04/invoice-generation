@@ -17,3 +17,10 @@ export const createAddressInDB = async (data) => {
     console.log(err);
   }
 };
+
+
+//update address details
+export const updateAddressInDB = async (id, data) => {
+  logger.info("updating address details with id " + id);
+  return await AddressModel.findByIdAndUpdate(id, data);
+};

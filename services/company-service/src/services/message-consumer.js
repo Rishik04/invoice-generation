@@ -17,6 +17,7 @@ export const consumeTenantCreated = async () => {
       const tenant = JSON.parse(message.value.toString());
       // console.log("New onwer received:", tenant);
       //initialize a company with the tenant
+      
       logger.info("Create company by tenant data" + tenant);
       await createCompany({
         name: tenant.tenantName,

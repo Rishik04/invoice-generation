@@ -17,3 +17,9 @@ export const createBankInDB = async (data) => {
     console.log(err);
   }
 };
+
+//update bank details
+export const updateBankInDB = async (id, data) => {
+  logger.info("updating bank details with id " + id);
+  return await BankModel.findByIdAndUpdate(id, data);
+};
