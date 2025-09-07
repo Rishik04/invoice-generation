@@ -1,17 +1,20 @@
 import express from "express";
 import { auth } from "../auth/auth.js";
 import {
-  addCompany,
-  getCompany,
-  getCompanyById,
-  updateCompany,
-} from "../controllers/company.controller.js";
-import {
   createAddress,
   updateAddress,
 } from "../controllers/addresss.controller.js";
 import { createBank, updateBank } from "../controllers/bank.controller.js";
-import { createProduct, getProducts } from "../controllers/product.controller.js";
+import {
+  addCompany,
+  getCompany,
+  updateCompany
+} from "../controllers/company.controller.js";
+import {
+  createProduct,
+  getProducts,
+  getProductsByType
+} from "../controllers/product.controller.js";
 const router = express.Router();
 
 //company
@@ -31,6 +34,6 @@ router.put("/update-bank-details/:id", auth, updateBank);
 //product routes
 router.post("/add-product", auth, createProduct);
 router.get("/get-products", auth, getProducts);
-
+router.get("/get-products/:type", auth, getProductsByType);
 
 export default router;

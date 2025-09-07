@@ -10,7 +10,13 @@ export const createProductInDB = async (product) => {
 };
 
 //get all products of the company
-export const getAllProducts = async (data) => {
+export const getAllProductsFromDB = async (data) => {
   logger.info("Get all products for tenant id " + data.id);
   return await ProductModel.find({ tenantId: data.tenantId });
+};
+
+//get all products by the type
+export const getProductsByTypeFromDB = async ({ tenantId, type }) => {
+  logger.info("Get products for category " + type);
+  return await ProductModel.find({ tenantId: tenantId, type: type });
 };
