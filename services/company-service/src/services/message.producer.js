@@ -23,6 +23,18 @@ export async function sendCompanyEvent(eventType, data) {
       },
     ],
   });
+}
+
+export async function sendProductEvent(eventType, data) {
+  await producer.send({
+    topic: "product-events",
+    messages: [
+      {
+        key: eventType,
+        value: JSON.stringify({ event: eventType, data }),
+      },
+    ],
+  });
 
   console.log(`📤 Sent company event: ${eventType}`, data);
 }

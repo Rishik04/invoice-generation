@@ -36,7 +36,7 @@ app.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role, email: user.email, tenantId: user.tenantId },
       SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "6h" }
     );
     res.send({ success: true, token: token });
   } catch (err) {
