@@ -4,6 +4,8 @@ import PDFDocument from "pdfkit";
 import CompanyCacheModel from "../model/company.cache.model.js";
 import ProductCacheModel from "../model/product.cache.model.js";
 import InvoiceModel from "../model/invoice.model.js";
+import { sendCustomerEvent } from "./message.producer.js";
+import { customerEvents } from "./message-consumer.js";
 
 const IMAGE_PATH = path.join(process.cwd(), "src", "public", "images");
 
@@ -374,13 +376,22 @@ export const generateInvoicePDF = async (tenantId) => {
   });
 };
 
-
 //save invoice in db
 export const saveInvoiceInDB = async (tenantId, data) => {
   const company = await CompanyCacheModel.findOne({ tenantId: tenantId });
   const products = await ProductCacheModel.find({ tenantId: tenantId });
 
-  const { items } = data;
+  const { items, customer } = data;
+  const invoiceNumber = await createInvoiceNumber();
+
+  const customerData = {
+    ...customer,
+    tenantId,
+    companyId: company._id,
+    invoiceNumber: invoiceNumber,
+  };
+
+  await sendCustomerEvent("customer.create.command", customerData);
 
   const invoiceItems = items.map((item) => {
     const product = products.find((p) => p._id.toString() === item.productId);
@@ -403,9 +414,25 @@ export const saveInvoiceInDB = async (tenantId, data) => {
     tenantId,
     total: 106702,
     tax: 2,
-    invoiceNumber: "INV-001",
+    invoiceNumber: invoiceNumber,
     items: invoiceItems,
+    // customer: createdCustomer,
   };
   const invoice = await InvoiceModel(updatedData).save();
+  return invoice;
+};
+
+const createInvoiceNumber = async () => {
+  const invoiceNumber = await InvoiceModel.countDocuments();
+  const index = invoiceNumber + 1;
+  return `INV_${index}`;
+};
+
+export const updateCustomerData = async (data) => {
+  const { name, phone, _id, email, invoiceNumber } = data;
+  const invoice = await InvoiceModel.findOneAndUpdate(
+    { invoiceNumber: invoiceNumber },
+    { customer: { name, phone, _id, email } }
+  );
   return invoice;
 };

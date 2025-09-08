@@ -3,6 +3,8 @@ import { Kafka } from "kafkajs";
 import CompanyCacheModel from "../model/company.cache.model.js";
 import ProductCacheModel from "../model/product.cache.model.js";
 // import CompanyCache from "../models/CompanyCache.js";
+import EventEmitter from "events";
+import { updateCustomerData } from "./invoice.template.service.js";
 
 const kafka = new Kafka({
   clientId: "invoice-service",
@@ -11,10 +13,16 @@ const kafka = new Kafka({
 
 const companyConsumer = kafka.consumer({ groupId: "invoice-service-company" });
 const productConsumer = kafka.consumer({ groupId: "invoice-service-product" });
+const customerConsumer = kafka.consumer({
+  groupId: "invoice-service-customer",
+});
 
 export async function startCompanyConsumer() {
   await companyConsumer.connect();
-  await companyConsumer.subscribe({ topic: "company-events", fromBeginning: true });
+  await companyConsumer.subscribe({
+    topic: "company-events",
+    fromBeginning: true,
+  });
 
   await companyConsumer.run({
     eachMessage: async ({ message }) => {
@@ -65,6 +73,30 @@ export async function startProductConsumer() {
         case "product.deleted":
           await ProductCacheModel.findByIdAndDelete(event.data._id);
           console.log("🗑️ Removed product:", event.data._id);
+          break;
+      }
+    },
+  });
+}
+
+export const customerEvents = new EventEmitter();
+
+export async function startCustomerConsumer() {
+  await customerConsumer.connect();
+  await customerConsumer.subscribe({
+    topic: "customer-events",
+    fromBeginning: true,
+  });
+
+  await customerConsumer.run({
+    eachMessage: async ({ message }) => {
+      const event = JSON.parse(message.value.toString());
+
+      switch (event.event) {
+        case "customer.created":
+        case "customer.updated":
+          console.log("✅ Customer id received:", event);
+          await updateCustomerData(event);
           break;
       }
     },
