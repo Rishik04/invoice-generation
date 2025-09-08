@@ -2,8 +2,7 @@
 import { Kafka } from "kafkajs";
 import CompanyCacheModel from "../model/company.cache.model.js";
 import ProductCacheModel from "../model/product.cache.model.js";
-// import CompanyCache from "../models/CompanyCache.js";
-import { updateCustomerData } from "./invoice.service.js";
+import { addCustomerIdInInvoice } from "./invoice.service.js";
 
 const kafka = new Kafka({
   clientId: "invoice-service",
@@ -93,7 +92,7 @@ export async function startCustomerConsumer() {
         case "customer.created":
         case "customer.updated":
           // console.log("✅ Customer id received:", event);
-          await updateCustomerData(event.data);
+          await addCustomerIdInInvoice(event.data);
           break;
       }
     },

@@ -2,11 +2,15 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import CompanyCacheModel from "../model/company.cache.model.js";
-import InvoiceModel from "../model/invoice.model.js";
-import ProductCacheModel from "../model/product.cache.model.js";
-import { sendCustomerEvent } from "./message.producer.js";
+import { convertAmountToIndianWords } from "../utils/converision.js";
 
 const IMAGE_PATH = path.join(process.cwd(), "src", "public", "images");
+let TOTAL_AMOUNT;
+
+const DEFAULT_FONTS = {
+  Normal: path.join(process.cwd(), "src", "public", "fonts", "arial.ttf"),
+  Bold: path.join(process.cwd(), "src", "public", "fonts", "ARIALBD.ttf"),
+};
 
 const generateHeader = (doc, company) => {
   const IMAGE_WIDTH = 150;
@@ -15,20 +19,20 @@ const generateHeader = (doc, company) => {
   const IMAGE_HEIGHT = doc.y;
   doc
     .fontSize(10)
-    // .font("bold")
+    .font("bold")
     .text(`GSTIN: `, { align: "left", continued: true })
-    // .font("normal")
+    .font("normal")
     .text(`${company.gstin}`)
-    // .font("bold")
+    .font("bold")
     .text(`CUSTOMER COPY`, doc.x, IMAGE_HEIGHT, {
       align: "right",
       underline: true,
     })
-    // .font("normal")
+    .font("normal")
     .text(`${company.phone}`, doc.x, doc.y + 2, { align: "right" })
-    // .font("bold")
+    .font("bold")
     .text(`HM.No.: `, doc.x, doc.y - 10, { align: "left", continued: true })
-    // .font("normal")
+    .font("normal")
     .text(`${company.hallMarkNumber || ""}`)
     .moveDown();
 
@@ -47,9 +51,9 @@ const generateHeader = (doc, company) => {
 
   doc
     .fontSize(25)
-    // .font("bold")
+    .font("bold")
     .text(company.name.toUpperCase(), { align: "center", underline: true })
-    // .font("normal")
+    .font("normal")
     .fontSize(12)
     .text(company.address.street, { align: "center" })
     .fontSize(10)
@@ -57,16 +61,91 @@ const generateHeader = (doc, company) => {
     .moveDown(2);
 };
 
-const generateItemsTable = (doc, items = null) => {
+
+const generateCustomerInfo = (doc, customer, date) => {
+  const COLUMN_HEIGHT = doc.y - 2;
+
+  doc
+    .font("bold")
+    .fontSize(10)
+    .text("Customer Name & Address:", 12, doc.y - 5, { underline: true })
+    .moveDown()
+    .text(customer.name, 12, doc.y)
+    .font("normal")
+    .text(customer.address, 12, doc.y)
+    .text(`Ph # ${customer.phone}`, 12, doc.y)
+    .moveDown(2)
+    .text(`State: ${customer.state}`)
+    .text(`Code: ${customer.stateCode}`)
+    .moveDown();
+
+  //generate invoice number and date
+  doc
+    .moveTo(320, COLUMN_HEIGHT - 10)
+    .lineTo(320, doc.y - 5)
+    .stroke();
+
+  // Set your fonts (ensure they are registered correctly if custom)
+
+  // Y position to align the first row
+  const infoY = COLUMN_HEIGHT;
+
+  // Bill No
+  doc
+    .font("bold")
+    .text("Bill No: ", 325, infoY, { continued: true })
+    .font("normal")
+    .text("123");
+
+  // Date (below Bill No)
+  doc
+    .font("bold")
+    .text("Date: ", 450, doc.y - 10, { continued: true })
+    .font("normal")
+    .text(date);
+
+  // YEAR (below Date)
+  const year = new Date(date).getFullYear();
+  doc
+    .font("bold")
+    .text("YEAR: ", 325, doc.y + 5, { continued: true })
+    .font("normal")
+    .text(`${year}-${year + 1}`);
+
+  doc
+    .moveTo(320, doc.y + 5)
+    .lineTo(doc.page.width - 7, doc.y + 5)
+    .stroke();
+
+  // Consignee Details
+  doc.font("bold").text("Consignee Details :", 325, doc.y + 6);
+
+  doc
+    .moveTo(320, doc.y + 2)
+    .lineTo(doc.page.width - 7, doc.y + 2)
+    .stroke();
+
+  // Customer details
+  doc
+    .font("bold")
+    .text(`${customer.name}`, 325, doc.y + 5)
+    .font("normal")
+    .text(`${customer.address}`, 325, doc.y + 10)
+    .text(`Ph # ${customer.phone}`, 325, doc.y + 10);
+
+  doc.y = COLUMN_HEIGHT + 110; // Adjust y position for the table
+};
+
+const generateItemsTable = (doc, items) => {
   const tableConfig = {
     headers: [
       { text: "Type", width: 30, align: "center" },
       { text: "Description", width: 100, align: "center" },
       { text: "HSN Code", width: 40, align: "center" },
-      { text: "Purity", width: 50, align: "center" },
-      { text: "Gross Wt", width: 50, align: "center" },
-      { text: "Rate", width: 50, align: "center" },
-      { text: "Value", width: 50, align: "center" },
+      { text: "Purity", width: 40, align: "center" },
+      { text: "Gross Wt", width: 40, align: "center" },
+      { text: "Rate", width: 60, align: "center" },
+      { text: "Value", width: 60, align: "center" },
       { text: "Making Charges", width: 60, align: "center" },
       { text: "Other", width: 50, align: "center" },
       { text: "Amount", width: 80, align: "center" },
@@ -78,38 +157,39 @@ const generateItemsTable = (doc, items = null) => {
   };
 
   // Prepare table rows
-  //   tableConfig.rows = items?.map((item) => {
-  //     const totalRate = item.rate * item.grossWeight;
-  //     const makingCharges = (totalRate * item.makingCharges) / 100;
-  //     const totalCharges = makingCharges + (item.otherCharges || 0) + totalRate;
+  tableConfig.rows = items?.map((item) => {
+    const totalRate = item.rate/10 * item.weight;
+    const makingCharges = (totalRate * item.makingCharges) / 100;
+    const totalCharges = makingCharges + (item.otherCharges || 0) + totalRate;
 
-  //     return [
-  //       item.type,
-  //       item.description,
-  //       item.hsnCode,
-  //       item.purity,
-  //       item.grossWeight.toFixed(3),
-  //       formatMoney(item.rate),
-  //       formatMoney(totalRate),
-  //       formatMoney(makingCharges),
-  //       item.otherCharges ? formatMoney(item.otherCharges) : "0.00",
-  //       formatMoney(totalCharges),
-  //     ];
-  //   });
+    return [
+      item.category,
+      item.name,
+      item.hsnNumber,
+      item.karat,
+      item.weight.toFixed(3),
+      formatMoney(item.rate),
+      formatMoney(totalRate),
+      formatMoney(makingCharges),
+      item.otherCharges ? formatMoney(item.otherCharges) : "0.00",
+      formatMoney(totalCharges),
+    ];
+  });
 
-  //   // Calculate totals
-  //   const totalAmount = parseFloat(calculateTotal(tableConfig.rows, 9));
-  //   const totalWithGST = totalAmount + calculateGST(totalAmount, 1.5) * 2;
+  // Calculate totals
+  const totalAmount = parseFloat(calculateTotal(tableConfig.rows, 9));
+  const totalWithGST = totalAmount + calculateGST(totalAmount, 1.5) * 2;
 
   // Draw table
   drawTableWithGrid(doc, tableConfig);
 
   // Draw totals section
-  //   drawTotalsSection(doc, tableConfig, totalAmount, totalWithGST);
+  drawTotalsSection(doc, tableConfig, totalAmount, totalWithGST);
 };
 
 const drawTableWithGrid = (doc, config) => {
-  const { headers, margin, rowHeight, headerHeight, columnSpacing } = config;
+  const { headers, margin, rowHeight, headerHeight, rows, columnSpacing } =
+    config;
 
   // Calculate total width
   config.totalWidth =
@@ -130,13 +210,13 @@ const drawTableWithGrid = (doc, config) => {
 
   // Draw header text and vertical lines
   let x = margin.left;
-  //   doc.font("bold");
+  doc.font("bold");
 
   headers.forEach((header, i) => {
     // Vertical line
     doc
       .moveTo(x, margin.top)
-      .lineTo(x, margin.top + headerHeight + 3 * rowHeight)
+      .lineTo(x, margin.top + headerHeight + rows.length  * rowHeight)
       .stroke();
 
     // Header text
@@ -151,16 +231,14 @@ const drawTableWithGrid = (doc, config) => {
   // Final vertical line
   doc
     .moveTo(x - columnSpacing, margin.top)
-    .lineTo(x - columnSpacing, margin.top + headerHeight + 3 * rowHeight)
+    .lineTo(x - columnSpacing, margin.top + headerHeight + rows.length * rowHeight)
     .stroke();
 
-  //   doc.font("normal");
-
-  let row = [1, 2, 3];
+  doc.font("normal");
 
   // Draw rows with horizontal lines
   let y = margin.top + headerHeight;
-  row.forEach((row) => {
+  rows.forEach((row) => {
     // Horizontal line
     doc
       .moveTo(margin.left, y)
@@ -169,13 +247,13 @@ const drawTableWithGrid = (doc, config) => {
 
     // Row content
     x = margin.left;
-    // row.forEach((cell, colIndex) => {
-    //   doc.text(cell, x + 2, y + 5, {
-    //     width: headers[colIndex].width - 4,
-    //     align: headers[colIndex].align,
-    //   });
-    //   x += headers[colIndex].width + columnSpacing;
-    // });
+    row.forEach((cell, colIndex) => {
+      doc.text(cell, x + 2, y + 5, {
+        width: headers[colIndex].width - 4,
+        align: headers[colIndex].align,
+      });
+      x += headers[colIndex].width + columnSpacing;
+    });
 
     y += rowHeight;
     doc.y = y;
@@ -189,7 +267,7 @@ const drawTableWithGrid = (doc, config) => {
 };
 
 const drawTotalsSection = (doc, config, totalAmount, totalWithGST) => {
-  const { margin, totalWidth, rowHeight } = config;
+  const { margin, totalWidth, rowHeight, rows } = config;
   let y =
     margin.top +
     config.headerHeight +
@@ -340,16 +418,32 @@ const generateFooter = (doc, company) => {
     .text("THANK YOU, VISIT AGAIN", { align: "center" });
 };
 
-export const generateInvoicePDF = async (tenantId) => {
-  const company = await CompanyCacheModel.findOne({ tenantId }).lean();
+const formatMoney = (value) => {
+  const num = Number(value);
+  return isNaN(num) ? "0.00" : num.toFixed(2);
+};
+
+const calculateGST = (value, gstPercentage) => (value * gstPercentage) / 100;
+
+const calculateTotal = (rows, columnIndex) => {
+  return rows
+    .reduce((sum, row) => sum + parseFloat(row[columnIndex]), 0)
+    .toFixed(2);
+};
+
+export const createPDF = async (invoice) => {
+  const company = await CompanyCacheModel.findById(invoice.companyId).lean();
 
   if (!company) {
     throw new Error("Company not found");
   }
   const doc = new PDFDocument({ size: "A4", margin: 10, layout: "portrait" });
 
+  doc.registerFont("normal", DEFAULT_FONTS.Normal);
+  doc.registerFont("bold", DEFAULT_FONTS.Bold);
+
   // File name & path
-  const fileName = `invoice_${Date.now()}.pdf`;
+  const fileName = `${invoice.invoiceNumber}.pdf`;
   const filePath = path.join(
     process.cwd(),
     "src",
@@ -364,7 +458,8 @@ export const generateInvoicePDF = async (tenantId) => {
   doc.pipe(stream);
 
   generateHeader(doc, company);
-  generateItemsTable(doc);
+  generateCustomerInfo(doc, invoice.customer, Date.now())
+  generateItemsTable(doc, invoice.items);
   generateFooter(doc, company);
 
   doc.end();
@@ -375,65 +470,4 @@ export const generateInvoicePDF = async (tenantId) => {
   });
 };
 
-//save invoice in db
-export const saveInvoiceInDB = async (tenantId, data) => {
-  const company = await CompanyCacheModel.findOne({ tenantId: tenantId });
-  const products = await ProductCacheModel.find({ tenantId: tenantId });
-
-  const { items, customer } = data;
-  const invoiceNumber = await createInvoiceNumber();
-
-  const customerData = {
-    ...customer,
-    tenantId,
-    companyId: company._id,
-    invoiceNumber: invoiceNumber,
-  };
-
-  await sendCustomerEvent("customer.create.command", customerData);
-
-  const invoiceItems = items.map((item) => {
-    const product = products.find((p) => p._id.toString() === item.productId);
-    return {
-      productId: product._id,
-      name: product.name,
-      category: product.category,
-      karat: product.karat,
-      hsnNumber: product.hsnNumber,
-      weight: item.weight,
-      quantity: item.quantity,
-      rate: item.rate,
-      total: item.weight * item.quantity * item.rate,
-      makingCharges: item.makingCharges,
-    };
-  });
-
-  const updatedData = {
-    ...data,
-    companyId: company._id,
-    tenantId,
-    total: 106702,
-    tax: 2,
-    invoiceNumber: invoiceNumber,
-    items: invoiceItems,
-  };
-  const invoice = await InvoiceModel(updatedData).save();
-  return invoice;
-};
-
-const createInvoiceNumber = async () => {
-  const invoiceNumber = await InvoiceModel.countDocuments();
-  const index = invoiceNumber + 1;
-  return `INV_${index}`;
-};
-
-export const addCustomerIdInInvoice = async (data) => {
-  console.log(data);
-  const { invoiceNumber, _id } = data;
-  const invoice = await InvoiceModel.findOneAndUpdate(
-    { invoiceNumber },
-    { $set: { "customer._id": _id } },
-    { new: true }
-  );
-  return invoice;
-};
+// export const createPDF = (invoice) => {};

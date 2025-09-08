@@ -3,26 +3,19 @@ import {
   generateInvoicePDF,
   saveInvoiceInDB,
 } from "../services/invoice.service.js";
-
-export const generatePDF = async (req, res) => {
-  try {
-    const { tenantId } = req.user;
-    const { filePath, fileName } = await generateInvoicePDF(tenantId);
-    res.download(filePath, fileName);
-  } catch (err) {
-    console.log(err);
-  }
-};
+import { createPDF } from "../services/pdf.service.js";
 
 export const generateInvoice = async (req, res) => {
   try {
     const { tenantId } = req.user;
     const invoice = await saveInvoiceInDB(tenantId, req.body);
     if (invoice) {
-      res.send({ data: invoice });
+      const { filePath, fileName } = await createPDF(invoice);
+      res.download(filePath, fileName);
+      // res.send({ data: invoice });
     }
   } catch (err) {
-    console.log(err)
+    console.log(err);
     return errorResponse(res, 400, "unable to generate invoice", err);
   }
 };

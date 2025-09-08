@@ -14,6 +14,7 @@ const invoiceItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   rate: { type: Number, required: true },
   total: { type: Number, required: true }, // weight * quantity * rate
+  makingCharges: { type: Number, required: true },
 });
 
 const invoiceSchema = new mongoose.Schema(
