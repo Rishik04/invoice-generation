@@ -3,8 +3,7 @@ import { Kafka } from "kafkajs";
 import CompanyCacheModel from "../model/company.cache.model.js";
 import ProductCacheModel from "../model/product.cache.model.js";
 // import CompanyCache from "../models/CompanyCache.js";
-import EventEmitter from "events";
-import { updateCustomerData } from "./invoice.template.service.js";
+import { updateCustomerData } from "./invoice.service.js";
 
 const kafka = new Kafka({
   clientId: "invoice-service",
@@ -79,8 +78,6 @@ export async function startProductConsumer() {
   });
 }
 
-export const customerEvents = new EventEmitter();
-
 export async function startCustomerConsumer() {
   await customerConsumer.connect();
   await customerConsumer.subscribe({
@@ -95,8 +92,8 @@ export async function startCustomerConsumer() {
       switch (event.event) {
         case "customer.created":
         case "customer.updated":
-          console.log("✅ Customer id received:", event);
-          await updateCustomerData(event);
+          // console.log("✅ Customer id received:", event);
+          await updateCustomerData(event.data);
           break;
       }
     },

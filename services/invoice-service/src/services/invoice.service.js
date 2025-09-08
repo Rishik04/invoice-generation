@@ -2,10 +2,9 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import CompanyCacheModel from "../model/company.cache.model.js";
-import ProductCacheModel from "../model/product.cache.model.js";
 import InvoiceModel from "../model/invoice.model.js";
+import ProductCacheModel from "../model/product.cache.model.js";
 import { sendCustomerEvent } from "./message.producer.js";
-import { customerEvents } from "./message-consumer.js";
 
 const IMAGE_PATH = path.join(process.cwd(), "src", "public", "images");
 
@@ -416,7 +415,6 @@ export const saveInvoiceInDB = async (tenantId, data) => {
     tax: 2,
     invoiceNumber: invoiceNumber,
     items: invoiceItems,
-    // customer: createdCustomer,
   };
   const invoice = await InvoiceModel(updatedData).save();
   return invoice;
@@ -429,10 +427,12 @@ const createInvoiceNumber = async () => {
 };
 
 export const updateCustomerData = async (data) => {
-  const { name, phone, _id, email, invoiceNumber } = data;
+  console.log(data)
+  const { invoiceNumber, _id } = data;
   const invoice = await InvoiceModel.findOneAndUpdate(
-    { invoiceNumber: invoiceNumber },
-    { customer: { name, phone, _id, email } }
+    { invoiceNumber },
+    { $set: { "customer._id": _id } },
+    { new: true }
   );
   return invoice;
 };

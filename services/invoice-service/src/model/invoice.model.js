@@ -20,7 +20,13 @@ const invoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true },
     filePath: { type: String },
-    customer: Object,
+    customer: {
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" }, // reference
+      name: String,
+      phone: String,
+      email: String,
+      address: String,
+    },
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",

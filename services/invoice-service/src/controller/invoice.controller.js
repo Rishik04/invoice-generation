@@ -2,7 +2,7 @@ import { errorResponse } from "../response/response.js";
 import {
   generateInvoicePDF,
   saveInvoiceInDB,
-} from "../services/invoice.template.service.js";
+} from "../services/invoice.service.js";
 
 export const generatePDF = async (req, res) => {
   try {

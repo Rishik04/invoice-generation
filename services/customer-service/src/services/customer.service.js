@@ -11,7 +11,8 @@ export const createCustomerInDB = async (data) => {
     createdAt: Date.now(),
   };
   const customer = await new CustomerModel(data).save();
-  await sendCustomerEvent("customer.created", { ...customer, invoiceNumber });
+  const updatedData = { _id: customer._id, invoiceNumber };
+  await sendCustomerEvent("customer.created", updatedData);
   return customer;
 };
 
