@@ -45,14 +45,17 @@ interface RegisterResponse {
 }
 
 // 2. Define Initial State
-const initialState: AuthState = {
-  loading: false,
-  isAuthenticated: false,
-  user: null,
-  token: null,
-  error: null,
-  successMessage: null,
-};
+const persistedAuth = localStorage.getItem("auth");
+const initialState: AuthState = persistedAuth
+  ? JSON.parse(persistedAuth)
+  : {
+      loading: false,
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      error: null,
+      successMessage: null,
+    };
 
 // 3. Create Async Thunks for API Calls using Axios
 
@@ -199,11 +202,21 @@ const authSlice = createSlice({
         loginUser.fulfilled,
         (state, action: PayloadAction<LoginResponse>) => {
           state.loading = false;
-          state.isAuthenticated = true; // Set isAuthenticated to true on successful login
+          state.isAuthenticated = true;
           state.user = action.payload.user || null;
           state.token = action.payload.token || null;
           state.error = null;
           state.successMessage = action.payload.message;
+
+          // ✅ Persist auth to localStorage
+          localStorage.setItem(
+            "auth",
+            JSON.stringify({
+              user: state.user,
+              token: state.token,
+              isAuthenticated: state.isAuthenticated,
+            })
+          );
         }
       )
       .addCase(loginUser.rejected, (state, action) => {
