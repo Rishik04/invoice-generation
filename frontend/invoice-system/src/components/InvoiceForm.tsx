@@ -1,867 +1,582 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  useForm,
-  SubmitHandler,
-  useFieldArray,
-  useWatch,
-} from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useNavigate } from "react-router-dom";
+  PlusCircle, 
+  Trash2, 
+  Home, 
+  Building2, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin,
+  Calendar,
+  FileText,
+  Calculator,
+  Sparkles,
+  ChevronRight,
+  ArrowLeft,
+  Check,
+  Receipt,
+  Coins
+} from 'lucide-react';
 
-// Shadcn UI Components
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-// Icons
-import { PlusCircle, Trash2, Home, Loader2 } from "lucide-react";
-
-// Redux Hooks and Slices
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { Company, generateInvoice, generateInvoiceNumber } from "@/redux/slices/companySlice";
-import { DatePicker } from "./custom-ui/DatePicker";
-
-// --- Zod Schemas for Invoice Form ---
-const invoiceItemSchema = z.object({
-  type: z.enum(["S", "G"], { required_error: "Type is required" }),
-  description: z.string().min(1, "Description is required"),
-  hsnCode: z.string().min(1, "HSN Code is required"),
-  purity: z.string().min(1, "Purity is required"),
-  grossWeight: z.coerce.number().min(0.01, "Gross Weight must be positive"),
-  netWeight: z.coerce.number().min(0.01, "Net Weight must be positive"),
-  rate: z.coerce.number().min(0.01, "Rate must be positive"),
-  makingCharges: z.coerce
-    .number()
-    .min(0, "Making Charges must be non-negative"),
-  otherCharges: z.coerce.number().min(0, "Other Charges must be non-negative"),
-});
-
-const invoiceCustomerSchema = z.object({
-  name: z.string().min(1, "Customer Name is required"),
-  address: z.string().min(1, "Customer Address is required"),
-  phone: z
-    .string()
-    .min(10, "Phone must be at least 10 digits")
-    .regex(/^\d+$/, "Phone must contain only digits"),
-  state: z.string().min(1, "Customer State is required"),
-});
-
-const generateInvoiceFormSchema = z.object({
-  invoiceNumber: z.string().min(1, "Invoice Number is required"),
-  date: z.string().min(1, "Date is required"),
-  items: z
-    .array(invoiceItemSchema)
-    .min(1, "At least one item is required for the invoice"),
-  customer: invoiceCustomerSchema,
-});
-
-type GenerateInvoiceFormInputs = z.infer<typeof generateInvoiceFormSchema>;
-
-// Helper function to convert number to words (simple example, you might use a library like 'number-to-words')
-function convertNumberToWords(num: number) {
-  const units = [
-    "",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-  ];
-  const teens = [
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
-  ];
-  const tens = [
-    "",
-    "",
-    "Twenty",
-    "Thirty",
-    "Forty",
-    "Fifty",
-    "Sixty",
-    "Seventy",
-    "Eighty",
-    "Ninety",
-  ];
-
-  if (num === 0) return "Zero";
-
-  function convertChunk(n: number): string {
-    let result = "";
-    if (n >= 100) {
-      result += units[Math.floor(n / 100)] + " Hundred ";
-      n %= 100;
-    }
-    if (n >= 10 && n <= 19) {
-      result += teens[n - 10] + " ";
-    } else if (n >= 20) {
-      result += tens[Math.floor(n / 10)] + " ";
-      n %= 10;
-    }
-    if (n >= 1 && n <= 9) {
-      result += units[n] + " ";
-    }
-    return result;
-  }
-
-  const crores = Math.floor(num / 10000000);
-  num %= 10000000;
-  const lakhs = Math.floor(num / 100000);
-  num %= 100000;
-  const thousands = Math.floor(num / 1000);
-  num %= 1000;
-  const hundreds = Math.floor(num);
-  const paise = Math.round((num - hundreds) * 100);
-
-  let words = "";
-  if (crores > 0) words += convertChunk(crores) + "Crore ";
-  if (lakhs > 0) words += convertChunk(lakhs) + "Lakh ";
-  if (thousands > 0) words += convertChunk(thousands) + "Thousand ";
-  if (hundreds > 0) words += convertChunk(hundreds);
-
-  if (words.trim() === "") words = "Zero";
-
-  words = words.trim();
-  if (paise > 0) {
-    words += ` and ${convertChunk(paise)} Paise`;
-  }
-
-  return words.trim() + " Only";
-}
-
-const InvoiceForm: React.FC = () => {
-  const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const selectedCompany = useAppSelector(
-    (state) => state.company.selectedCompany
-  );
-  const [generateInvoiceNumberState, setGenerateInvoiceNumberState] = React.useState<string>("");
-
-  useEffect(() => {
-    const generateUniqueInvoiceNumber = async () => {
-      const data = await dispatch(generateInvoiceNumber());
-      console.log("Generated Invoice Number:", data.payload);
-      setGenerateInvoiceNumberState(data.payload);
-    };
-    generateUniqueInvoiceNumber();
-  }, [])
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<GenerateInvoiceFormInputs>({
-    resolver: zodResolver(generateInvoiceFormSchema),
-    defaultValues: {
-      invoiceNumber: generateInvoiceNumberState || "",
-      date: new Date().toISOString().split("T")[0],
-      items: [
-        {
-          type: "S",
-          description: "",
-          hsnCode: "7113",
-          purity: "",
-          grossWeight: 0,
-          netWeight: 0,
-          rate: 0,
-          makingCharges: 0,
-          otherCharges: 0,
-        },
-      ],
-      customer: {
-        name: "",
-        address: "",
-        phone: "",
-        state: "",
-      },
+const ModernInvoiceForm = () => {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    invoiceNumber: 'INV-2024-001',
+    date: new Date().toISOString().split('T')[0],
+    customer: {
+      name: '',
+      address: '',
+      phone: '',
+      state: ''
     },
+    items: [{
+      type: 'S',
+      description: '',
+      hsnCode: '7113',
+      purity: '18k',
+      grossWeight: 0,
+      netWeight: 0,
+      rate: 0,
+      makingCharges: 0,
+      otherCharges: 0
+    }]
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "items",
-  });
-
-  // Redirect if no company is selected
-  useEffect(() => {
-    if (!selectedCompany) {
-      navigate("/dashboard");
+  // Mock company data
+  const selectedCompany = {
+    name: "Golden Ornaments Ltd",
+    address: "123 Jewelry Street, Mumbai, Maharashtra 400001",
+    gstin: "27ABCDE1234F1Z5",
+    email: "info@goldenornaments.com",
+    phone: ["022-12345678", "9876543210"],
+    state: "Maharashtra",
+    hallMarkNumber: "HM-12345",
+    bankDetails: {
+      name: "HDFC Bank",
+      branch: "Bandra West",
+      accountNumber: "12345678901234",
+      ifsc: "HDFC0001234"
     }
-  }, [selectedCompany, navigate]);
+  };
 
-  // Watch all items for real-time calculation
-  const watchedItems = useWatch({
-    control,
-    name: "items",
-  });
+  const handleInputChange = (field, value, index = null, subField = null) => {
+    setFormData(prev => {
+      if (index !== null) {
+        const newItems = [...prev.items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        return { ...prev, items: newItems };
+      } else if (subField) {
+        return {
+          ...prev,
+          [field]: { ...prev[field], [subField]: value }
+        };
+      } else {
+        return { ...prev, [field]: value };
+      }
+    });
+  };
 
-  //   console.log("Watched Items:", watchedItems);
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        type: 'S',
+        description: '',
+        hsnCode: '7113',
+        purity: '18k',
+        grossWeight: 0,
+        netWeight: 0,
+        rate: 0,
+        makingCharges: 0,
+        otherCharges: 0
+      }]
+    }));
+  };
 
-  // Calculate totals whenever items change
-  const { subtotal, sgst, cgst, total, amountInWords } = useMemo(() => {
-    if (!watchedItems || !Array.isArray(watchedItems)) {
-      return { subtotal: 0, sgst: 0, cgst: 0, total: 0, amountInWords: "" };
-    }
+  const removeItem = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
 
-    // Assuming 3% GST for gold/jewelry
+  const { subtotal, sgst, cgst, total } = useMemo(() => {
     const GST_RATE = 0.03;
-
-    // Step 1: Calculate subtotal from watched items
-    const currentSubtotal = watchedItems.reduce((acc, item) => {
+    
+    const currentSubtotal = formData.items.reduce((acc, item) => {
       const itemRate = (Number(item.netWeight) || 0) * (Number(item.rate) || 0);
-      const itemValue =
-        itemRate +
-        (itemRate * (Number(item.makingCharges) / 100) || 0) +
-        (Number(item.otherCharges) || 0);
+      const itemValue = itemRate + (itemRate * (Number(item.makingCharges) / 100) || 0) + (Number(item.otherCharges) || 0);
       return acc + itemValue;
     }, 0);
 
-    // Step 2: Calculate SGST and CGST
-    const currentSgst = parseFloat(
-      (currentSubtotal * (GST_RATE / 2)).toFixed(2)
-    );
-    const currentCgst = parseFloat(
-      (currentSubtotal * (GST_RATE / 2)).toFixed(2)
-    );
-
-    // Step 3: Total amount
-    const currentTotal = parseFloat(
-      (currentSubtotal + currentSgst + currentCgst).toFixed(2)
-    );
-
-    // Step 4: Convert total to words
-    const currentAmountInWords = convertNumberToWords(currentTotal);
+    const currentSgst = parseFloat((currentSubtotal * (GST_RATE / 2)).toFixed(2));
+    const currentCgst = parseFloat((currentSubtotal * (GST_RATE / 2)).toFixed(2));
+    const currentTotal = parseFloat((currentSubtotal + currentSgst + currentCgst).toFixed(2));
 
     return {
       subtotal: parseFloat(currentSubtotal.toFixed(2)),
       sgst: currentSgst,
       cgst: currentCgst,
-      total: currentTotal,
-      amountInWords: currentAmountInWords,
+      total: currentTotal
     };
-  }, [watchedItems]);
+  }, [formData.items]);
 
-  // Update calculated fields in the form state (though not directly submitted via register)
-  // This is more for internal state management or if you were to display them as disabled inputs
-  useEffect(() => {
-    console.log("Updating calculated values in form state");
-    console.log("wacth:", watchedItems);
-    setValue("subtotal", subtotal as any, { shouldValidate: false }); // Using 'any' for simplicity here as it's not part of Zod schema
-    setValue("sgst", sgst as any, { shouldValidate: false });
-    setValue("cgst", cgst as any, { shouldValidate: false });
-    setValue("total", total as any, { shouldValidate: false });
-    setValue("amountInWords", amountInWords as any, { shouldValidate: false });
-  }, [subtotal, sgst, cgst, total, amountInWords]);
-
-  const onSubmit: SubmitHandler<GenerateInvoiceFormInputs> = async (data) => {
-    if (!selectedCompany) {
-      console.error("No company selected to generate invoice!");
-      return;
-    }
-
-    const fullInvoiceData = {
-      invoice: {
-        ...data,
-        subtotal,
-        sgst,
-        cgst,
-        total,
-        amountInWords,
-      },
-      company: {
-        _id: selectedCompany._id,
-        name: selectedCompany.name,
-        address: selectedCompany.address,
-        gstin: selectedCompany.gstin,
-        email: selectedCompany.email,
-        phone: selectedCompany.phone, // Ensure phone is string for invoice
-        state: selectedCompany.state,
-        bankDetails: selectedCompany.bankDetails,
-        termsConditions: selectedCompany.termsConditions,
-        hallMarkNumber: selectedCompany.hallMarkNumber,
-      } as Company, // Type assertion to match original structure
-    };
-
-    // Log data for now. In a real app, you'd dispatch an action to send this to your API.
-    // console.log(
-    //   "Invoice Data to Send:",
-    //   JSON.stringify(fullInvoiceData, null, 2)
-    // );
-    // alert(
-    //   "Invoice data logged to console. (In a real app, this would be sent to your API)"
-    // );
-
-    // Optionally navigate back or to an invoice preview page
-    // navigate('/dashboard');
-    try {
-      const getInvoice = await dispatch(
-        generateInvoice(fullInvoiceData)
-      ).unwrap();
-      const result = getInvoice.data;
-
-      // Ensure it's a Blob and has the correct type
-      if (result instanceof Blob && result.type === "application/pdf") {
-        const pdfUrl = URL.createObjectURL(result);
-        window.open(pdfUrl, "_blank");
-
-        // Optional: revoke the URL after some time to free memory
-        setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000); // after 1 minute
-      } else {
-        console.warn("Expected a PDF Blob, but got:", result);
-        alert(
-          "PDF generation did not return a valid Blob. Please try again or check the console for details."
-        );
-      }
-    } catch (error: any) {
-      console.error("Error during PDF generation:", error);
-      alert(
-        `An error occurred while generating the PDF: ${error.message || "Unknown error. Check console."
-        }`
-      );
-    }
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
   };
 
-  if (!selectedCompany) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-5 text-center">
-        <h2 className="text-2xl font-bold mb-4">No Company Selected</h2>
-        <p className="text-gray-600 mb-6">
-          Please select a company from the dashboard to generate an invoice.
-        </p>
-        <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
+  const stepVariants = {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.4 } },
+    exit: { opacity: 0, x: -50, transition: { duration: 0.3 } }
+  };
+
+  const InputField = ({ 
+    icon: Icon, 
+    type = "text", 
+    placeholder, 
+    value, 
+    onChange, 
+    className = "",
+    ...props 
+  }) => (
+    <motion.div
+      className="relative group"
+      whileHover={{ scale: 1.01 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+        <Icon size={18} className="text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
       </div>
-    );
-  }
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl 
+          transition-all duration-300 outline-none font-medium text-gray-900 placeholder-gray-500
+          hover:border-gray-300 focus:border-blue-400 focus:bg-white focus:shadow-lg ${className}`}
+        {...props}
+      />
+    </motion.div>
+  );
+
+  const SelectField = ({ 
+    icon: Icon, 
+    value, 
+    onChange, 
+    options, 
+    placeholder = "Select option" 
+  }) => (
+    <motion.div
+      className="relative group"
+      whileHover={{ scale: 1.01 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+        <Icon size={18} className="text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full pl-12 pr-4 py-3.5 bg-gray-50/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl 
+          transition-all duration-300 outline-none font-medium text-gray-900 appearance-none
+          hover:border-gray-300 focus:border-blue-400 focus:bg-white focus:shadow-lg"
+      >
+        <option value="">{placeholder}</option>
+        {options.map(option => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <ChevronRight className="absolute right-4 top-1/2 transform -translate-y-1/2 rotate-90 text-gray-400 pointer-events-none" size={16} />
+    </motion.div>
+  );
+
+  const StepIndicator = ({ currentStep, totalSteps }) => (
+    <div className="flex items-center justify-center mb-8">
+      {[...Array(totalSteps)].map((_, index) => (
+        <React.Fragment key={index}>
+          <motion.div
+            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300
+              ${index + 1 <= currentStep 
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
+                : 'bg-gray-200 text-gray-500'}`}
+            animate={{
+              scale: index + 1 === currentStep ? 1.1 : 1,
+              boxShadow: index + 1 === currentStep ? '0 0 20px rgba(59, 130, 246, 0.5)' : 'none'
+            }}
+          >
+            {index + 1 <= currentStep - 1 ? <Check size={16} /> : index + 1}
+          </motion.div>
+          {index < totalSteps - 1 && (
+            <div className={`w-12 h-1 mx-2 rounded transition-all duration-300 
+              ${index + 1 < currentStep ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-200'}`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="flex flex-col items-center min-h-screen">
-      <div className="w-full mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Generate Invoice</h1>
-        <Button
-          onClick={() => navigate("/dashboard")}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <Home className="h-4 w-4" /> Back to Dashboard
-        </Button>
+    <div className="min-h-screen p-4 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl"></div>
       </div>
 
-      <Card className="w-full shadow-md mb-6">
-        <CardHeader className="pb-4 border-b border-gray-200">
-          <CardTitle className="text-xl text-gray-700">
-            Company Details for Invoice
-          </CardTitle>
-          <p className="text-sm text-gray-500">
-            Invoice will be generated for:{" "}
-            <span className="font-semibold">{selectedCompany.name}</span>
-          </p>
-        </CardHeader>
-        <CardContent className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-700">
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="relative z-10 max-w-6xl mx-auto"
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <p>
-              <strong className="text-gray-800">Name:</strong>{" "}
-              {selectedCompany.name}
-            </p>
-            <p>
-              <strong className="text-gray-800">GSTIN:</strong>{" "}
-              {selectedCompany.gstin}
-            </p>
-            <p>
-              <strong className="text-gray-800">Hallmark No.:</strong>{" "}
-              {selectedCompany.hallMarkNumber}
-            </p>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+              Create Invoice
+            </h1>
+            <p className="text-gray-600 mt-2">Generate professional invoices for your jewelry business</p>
           </div>
-          <div>
-            <p>
-              <strong className="text-gray-800">Address:</strong>{" "}
-              {selectedCompany.address}
-            </p>
-            <p>
-              <strong className="text-gray-800">State:</strong>{" "}
-              {selectedCompany.state}
-            </p>
-            <p>
-              <strong className="text-gray-800">Email:</strong>{" "}
-              {selectedCompany.email}
-            </p>
-            <p>
-              <strong className="text-gray-800">Phone:</strong>{" "}
-              {selectedCompany.phone.join(", ")}
-            </p>
-          </div>
-          <div>
-            <p>
-              <strong className="text-gray-800">Bank:</strong>{" "}
-              {selectedCompany.bankDetails.name}
-            </p>
-            <p>
-              <strong className="text-gray-800">Branch:</strong>{" "}
-              {selectedCompany.bankDetails.branch}
-            </p>
-            <p>
-              <strong className="text-gray-800">A/C No:</strong>{" "}
-              {selectedCompany.bankDetails.accountNumber}
-            </p>
-            <p>
-              <strong className="text-gray-800">IFSC:</strong>{" "}
-              {selectedCompany.bankDetails.ifsc}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl 
+              text-gray-700 font-medium hover:bg-white hover:shadow-lg transition-all duration-300"
+          >
+            <Home size={18} />
+            Dashboard
+          </motion.button>
+        </div>
 
-      <Card className="w-full shadow-md">
-        <CardHeader className="pb-4 border-b border-gray-200">
-          <CardTitle className="text-xl text-gray-700">
-            Invoice Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Invoice & Customer Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  Invoice Information
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="invoiceNumber" className="mb-1 block">
-                      Invoice Number
-                    </Label>
-                    <Input id="invoiceNumber" {...register("invoiceNumber")} />
-                    {errors.invoiceNumber && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.invoiceNumber.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="date" className="mb-1 block">
-                      Date
-                    </Label>
-                    <DatePicker />
-                    {errors.date && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.date.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  Customer Information
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="customer.name" className="mb-1 block">
-                      Customer Name
-                    </Label>
-                    <Input id="customer.name" {...register("customer.name")} />
-                    {errors.customer?.name && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.customer.name.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="customer.address" className="mb-1 block">
-                      Customer Address
-                    </Label>
-                    <Input
-                      id="customer.address"
-                      {...register("customer.address")}
-                    />
-                    {errors.customer?.address && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.customer.address.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="customer.phone" className="mb-1 block">
-                        Customer Phone
-                      </Label>
-                      <Input
-                        id="customer.phone"
-                        type="tel"
-                        {...register("customer.phone")}
-                      />
-                      {errors.customer?.phone && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.customer.phone.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="customer.state" className="mb-1 block">
-                        Customer State
-                      </Label>
-                      <Input
-                        id="customer.state"
-                        {...register("customer.state")}
-                      />
-                      {errors.customer?.state && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.customer.state.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Company Info Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/20 p-6 mb-8 shadow-lg"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+              <Building2 className="text-white" size={24} />
             </div>
-
-            <Separator className="my-6" />
-
-            {/* Invoice Items */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                Invoice Items
-              </h3>
-              {fields.map((field, index) => (
-                <Card
-                  key={field.id}
-                  className="mb-4 p-4 border border-gray-200 bg-gray-50"
+              <h3 className="text-xl font-bold text-gray-800">{selectedCompany.name}</h3>
+              <p className="text-gray-600">Invoice will be generated for this company</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div className="space-y-2">
+              <p><span className="font-semibold text-gray-800">GSTIN:</span> {selectedCompany.gstin}</p>
+              <p><span className="font-semibold text-gray-800">Hallmark:</span> {selectedCompany.hallMarkNumber}</p>
+              <p><span className="font-semibold text-gray-800">Email:</span> {selectedCompany.email}</p>
+            </div>
+            <div className="space-y-2">
+              <p><span className="font-semibold text-gray-800">Address:</span> {selectedCompany.address}</p>
+              <p><span className="font-semibold text-gray-800">Phone:</span> {selectedCompany.phone.join(", ")}</p>
+            </div>
+            <div className="space-y-2">
+              <p><span className="font-semibold text-gray-800">Bank:</span> {selectedCompany.bankDetails.name}</p>
+              <p><span className="font-semibold text-gray-800">A/C:</span> {selectedCompany.bankDetails.accountNumber}</p>
+              <p><span className="font-semibold text-gray-800">IFSC:</span> {selectedCompany.bankDetails.ifsc}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Main Form */}
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/20 shadow-xl overflow-hidden">
+          <div className="p-8">
+            <StepIndicator currentStep={step} totalSteps={3} />
+
+            <AnimatePresence mode="wait">
+              {/* Step 1: Invoice Details */}
+              {step === 1 && (
+                <motion.div
+                  key="step1"
+                  variants={stepVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                 >
-                  <CardContent className="p-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.type`}
-                          className="mb-1 block"
-                        >
-                          Item Type
-                        </Label>
-                        <Select
-                          onValueChange={(value) =>
-                            setValue(`items.${index}.type`, value as "S" | "G")
-                          }
-                          value={watch(`items.${index}.type`)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="S">Silver</SelectItem>
-                            <SelectItem value="G">Gold</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {errors.items?.[index]?.type && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.type?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div className="lg:col-span-2">
-                        <Label
-                          htmlFor={`items.${index}.description`}
-                          className="mb-1 block"
-                        >
-                          Description
-                        </Label>
-                        <Input
-                          id={`items.${index}.description`}
-                          {...register(`items.${index}.description`)}
-                        />
-                        {errors.items?.[index]?.description && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.description?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.hsnCode`}
-                          className="mb-1 block"
-                        >
-                          HSN Code
-                        </Label>
-                        <Input
-                          id={`items.${index}.hsnCode`}
-                          {...register(`items.${index}.hsnCode`)}
-                        />
-                        {errors.items?.[index]?.hsnCode && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.hsnCode?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.purity`}
-                          className="mb-1 block"
-                        >
-                          Purity
-                        </Label>
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Invoice Information</h2>
+                    <p className="text-gray-600">Set up basic invoice details</p>
+                  </div>
 
-                        <Select
-                          onValueChange={(value) =>
-                            setValue(
-                              `items.${index}.purity`,
-                              value as "18k" | "22k"
-                            )
-                          }
-                          value={watch(`items.${index}.purity`)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="18k">18k/750</SelectItem>
-                            <SelectItem value="22k">22k/916</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div className="space-y-6">
+                      <InputField
+                        icon={Receipt}
+                        placeholder="Invoice Number"
+                        value={formData.invoiceNumber}
+                        onChange={(value) => handleInputChange('invoiceNumber', value)}
+                      />
+                      <InputField
+                        icon={Calendar}
+                        type="date"
+                        value={formData.date}
+                        onChange={(value) => handleInputChange('date', value)}
+                      />
+                    </div>
+                    <div className="space-y-6">
+                      <InputField
+                        icon={User}
+                        placeholder="Customer Name"
+                        value={formData.customer.name}
+                        onChange={(value) => handleInputChange('customer', value, null, 'name')}
+                      />
+                      <InputField
+                        icon={Phone}
+                        placeholder="Customer Phone"
+                        value={formData.customer.phone}
+                        onChange={(value) => handleInputChange('customer', value, null, 'phone')}
+                      />
+                    </div>
+                  </div>
 
-                        {/* <Input id={`items.${index}.purity`} {...register(`items.${index}.purity`)} /> */}
-                        {errors.items?.[index]?.purity && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.purity?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.grossWeight`}
-                          className="mb-1 block"
-                        >
-                          Gross Weight (grams)
-                        </Label>
-                        <Input
-                          id={`items.${index}.grossWeight`}
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${index}.grossWeight`)}
-                        />
-                        {errors.items?.[index]?.grossWeight && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.grossWeight?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.netWeight`}
-                          className="mb-1 block"
-                        >
-                          Net Weight (grams)
-                        </Label>
-                        <Input
-                          id={`items.${index}.netWeight`}
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${index}.netWeight`)}
-                        />
-                        {errors.items?.[index]?.netWeight && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.netWeight?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.rate`}
-                          className="mb-1 block"
-                        >
-                          Rate (per gram)
-                        </Label>
-                        <Input
-                          id={`items.${index}.rate`}
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${index}.rate`)}
-                        />
-                        {errors.items?.[index]?.rate && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.rate?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.makingCharges`}
-                          className="mb-1 block"
-                        >
-                          Making Charges (%)
-                        </Label>
-                        <Input
-                          id={`items.${index}.makingCharges`}
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${index}.makingCharges`)}
-                        />
-                        {errors.items?.[index]?.makingCharges && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.makingCharges?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`items.${index}.otherCharges`}
-                          className="mb-1 block"
-                        >
-                          Other Charges
-                        </Label>
-                        <Input
-                          id={`items.${index}.otherCharges`}
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${index}.otherCharges`)}
-                        />
-                        {errors.items?.[index]?.otherCharges && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.items[index]?.otherCharges?.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-end mt-4">
-                      {fields.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => remove(index)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Remove Item
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              <Button
-                type="button"
-                onClick={() =>
-                  append({
-                    type: "S",
-                    description: "",
-                    hsnCode: "",
-                    purity: "",
-                    grossWeight: 0,
-                    netWeight: 0,
-                    rate: 0,
-                    makingCharges: 0,
-                    otherCharges: 0,
-                  })
-                }
-                className="mt-4 flex items-center gap-2"
-              >
-                <PlusCircle className="h-4 w-4" /> Add Another Item
-              </Button>
-              {errors.items && (
-                <p className="text-red-500 text-xs mt-2">
-                  {errors.items.message}
-                </p>
+                  <div className="flex justify-center mt-8">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setStep(2)}
+                      className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 
+                        text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      Continue
+                      <ChevronRight size={20} />
+                    </motion.button>
+                  </div>
+                </motion.div>
               )}
-            </div>
 
-            <Separator className="my-6" />
+              {/* Step 2: Customer Details */}
+              {step === 2 && (
+                <motion.div
+                  key="step2"
+                  variants={stepVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Customer Details</h2>
+                    <p className="text-gray-600">Complete customer information</p>
+                  </div>
 
-            {/* Totals and Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-1">
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  Invoice Summary
-                </h3>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <div className="flex justify-between font-medium">
-                    <span>Subtotal:</span>
-                    <span>₹ {subtotal.toFixed(2)}</span>
+                  <div className="max-w-2xl mx-auto space-y-6">
+                    <InputField
+                      icon={MapPin}
+                      placeholder="Customer Address"
+                      value={formData.customer.address}
+                      onChange={(value) => handleInputChange('customer', value, null, 'address')}
+                    />
+                    <InputField
+                      icon={MapPin}
+                      placeholder="Customer State"
+                      value={formData.customer.state}
+                      onChange={(value) => handleInputChange('customer', value, null, 'state')}
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span>SGST (1.5%):</span>
-                    <span>₹ {sgst.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>CGST (1.5%):</span>
-                    <span>₹ {cgst.toFixed(2)}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-bold text-lg text-gray-800">
-                    <span>Total Amount:</span>
-                    <span>₹ {total.toFixed(2)}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-gray-600 italic">
-                    Amount in words:{" "}
-                    <span className="font-semibold">{amountInWords}</span>
-                  </p>
-                </div>
-              </div>
-              <div className="md:col-span-1">
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  Terms & Conditions
-                </h3>
-                <Textarea
-                  value={
-                    selectedCompany.termsConditions?.join("\n") ||
-                    "No specific terms and conditions provided."
-                  }
-                  readOnly
-                  className="min-h-[120px] bg-gray-100 text-gray-700"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  These are the terms and conditions from the selected company.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-2 mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/dashboard")}
-                className="px-6 py-3"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-3"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Generate Invoice
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+                  <div className="flex gap-4 justify-center mt-8">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setStep(1)}
+                      className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-all duration-300"
+                    >
+                      <ArrowLeft size={18} />
+                      Back
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setStep(3)}
+                      className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 
+                        text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      Continue
+                      <ChevronRight size={20} />
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 3: Items & Summary */}
+              {step === 3 && (
+                <motion.div
+                  key="step3"
+                  variants={stepVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Invoice Items</h2>
+                    <p className="text-gray-600">Add items and review totals</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {formData.items.map((item, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gray-50/80 rounded-xl p-6 border border-gray-200"
+                      >
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="font-semibold text-gray-800">Item {index + 1}</h4>
+                          {formData.items.length > 1 && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => removeItem(index)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </motion.button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          <SelectField
+                            icon={Coins}
+                            value={item.type}
+                            onChange={(value) => handleInputChange('type', value, index)}
+                            options={[
+                              { value: 'S', label: 'Silver' },
+                              { value: 'G', label: 'Gold' }
+                            ]}
+                          />
+                          <div className="md:col-span-2 lg:col-span-1">
+                            <InputField
+                              icon={FileText}
+                              placeholder="Description"
+                              value={item.description}
+                              onChange={(value) => handleInputChange('description', value, index)}
+                            />
+                          </div>
+                          <InputField
+                            icon={FileText}
+                            placeholder="HSN Code"
+                            value={item.hsnCode}
+                            onChange={(value) => handleInputChange('hsnCode', value, index)}
+                          />
+                          <SelectField
+                            icon={Sparkles}
+                            value={item.purity}
+                            onChange={(value) => handleInputChange('purity', value, index)}
+                            options={[
+                              { value: '18k', label: '18k/750' },
+                              { value: '22k', label: '22k/916' }
+                            ]}
+                          />
+                          <InputField
+                            icon={Calculator}
+                            type="number"
+                            placeholder="Gross Weight"
+                            step="0.01"
+                            value={item.grossWeight}
+                            onChange={(value) => handleInputChange('grossWeight', value, index)}
+                          />
+                          <InputField
+                            icon={Calculator}
+                            type="number"
+                            placeholder="Net Weight"
+                            step="0.01"
+                            value={item.netWeight}
+                            onChange={(value) => handleInputChange('netWeight', value, index)}
+                          />
+                          <InputField
+                            icon={Calculator}
+                            type="number"
+                            placeholder="Rate/gram"
+                            step="0.01"
+                            value={item.rate}
+                            onChange={(value) => handleInputChange('rate', value, index)}
+                          />
+                          <InputField
+                            icon={Calculator}
+                            type="number"
+                            placeholder="Making Charges %"
+                            step="0.01"
+                            value={item.makingCharges}
+                            onChange={(value) => handleInputChange('makingCharges', value, index)}
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={addItem}
+                      className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-300 
+                        rounded-xl text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all duration-300"
+                    >
+                      <PlusCircle size={20} />
+                      Add Another Item
+                    </motion.button>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Invoice Summary</h3>
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="flex justify-between text-gray-700">
+                        <span>Subtotal:</span>
+                        <span className="font-semibold">₹ {subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-700">
+                        <span>SGST (1.5%):</span>
+                        <span className="font-semibold">₹ {sgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-700">
+                        <span>CGST (1.5%):</span>
+                        <span className="font-semibold">₹ {cgst.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t-2 border-gray-300 pt-3">
+                        <div className="flex justify-between text-xl font-bold text-gray-900">
+                          <span>Total Amount:</span>
+                          <span>₹ {total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 justify-center mt-8">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setStep(2)}
+                      className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-all duration-300"
+                    >
+                      <ArrowLeft size={18} />
+                      Back
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 
+                        text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <Receipt size={20} />
+                      Generate Invoice
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
 
-export default InvoiceForm;
+export default ModernInvoiceForm;

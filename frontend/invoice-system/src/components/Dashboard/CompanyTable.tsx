@@ -1,289 +1,256 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { 
-  Company, 
-  setSelectedCompany,
-  fetchCompanies, 
-  deleteCompany,
-  clearCompanyMessages 
-} from "@/redux/slices/companySlice";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent 
-} from "@/components/ui/card";
+import { motion } from 'framer-motion';
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, Edit, Trash2, Loader2, Building2, ExternalLink, Filter } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import CompanyForm from "./CompanyForm";
+  AlertTriangle,
+  Building2,
+  CreditCard,
+  Edit,
+  Eye,
+  Filter,
+  Mail,
+  MapPin,
+  PlusCircle,
+  Search,
+  Trash2
+} from 'lucide-react';
+import { useState } from 'react';
 
-const CompanyTable = () => {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const { companies, loading, error } = useAppSelector(
-    (state) => state.company
+const ModernCompanyTable = ({
+  filteredCompanies, loading, error, searchTerm, setSearchTerm,
+  handleEdit, handleDelete, handleAddNew, filterStatus, setFilterStatus, viewMode, setViewMode
+}) => {
+  const [selectedItems, setSelectedItems] = useState([]);
+
+  const CompanyCard = ({ company, index }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      className="group bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-white/30 shadow-xl hover:shadow-2xl transition-all duration-500 relative overflow-hidden"
+    >
+      {/* Status Indicator */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <div className={`w-3 h-3 rounded-full ${company.status === 'active' ? 'bg-emerald-400' : 'bg-gray-300'} shadow-sm`}></div>
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${company.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+          {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
+        </span>
+      </div>
+
+      {/* Company Info */}
+      <div className="mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+            <Building2 size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors truncate">
+              {company.name}
+            </h3>
+            <p className="text-gray-500 text-sm font-mono">{company.gstin}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-gray-600">
+            <Mail size={14} />
+            <span className="truncate">{company.email}</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-600">
+            <MapPin size={14} />
+            <span className="truncate">{company.state}</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-600">
+            <CreditCard size={14} />
+            <span className="truncate">{company.bankDetails.name}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3">
+          <p className="text-xs text-gray-600 mb-1">Revenue</p>
+          <p className="font-bold text-gray-900">₹{(company.revenue / 1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-3">
+          <p className="text-xs text-gray-600 mb-1">Growth</p>
+          <p className={`font-bold ${company.growth > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            {company.growth > 0 ? '+' : ''}{company.growth.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => handleEdit(company)}
+          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-100 text-blue-700 rounded-xl font-medium hover:bg-blue-200 transition-colors text-sm"
+        >
+          <Edit size={14} />
+          Edit
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+        >
+          <Eye size={16} />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => handleDelete(company)}
+          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+        >
+          <Trash2 size={16} />
+        </motion.button>
+      </div>
+    </motion.div>
   );
 
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [companyToDeleteId, setCompanyToDeleteId] = useState<string | null>(null);
-  const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
-
-  const openFormDialog = (company?: Company) => {
-    if (company) {
-      setCompanyToEdit(company);
-      dispatch(setSelectedCompany(company));
-    } else {
-      setCompanyToEdit(null);
-      dispatch(setSelectedCompany(null));
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white/80 rounded-2xl p-6 animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gray-300 rounded-xl"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-300 rounded"></div>
+                <div className="h-3 bg-gray-300 rounded w-2/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
     }
-    setIsFormDialogOpen(true);
-  };
 
-  const closeFormDialog = () => {
-    setIsFormDialogOpen(false);
-    setCompanyToEdit(null);
-    dispatch(setSelectedCompany(null));
-    dispatch(clearCompanyMessages());
-  };
-
-  const openDeleteDialog = (companyId: string) => {
-    setCompanyToDeleteId(companyId);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const closeDeleteDialog = () => {
-    setCompanyToDeleteId(null);
-    setIsDeleteDialogOpen(false);
-    dispatch(clearCompanyMessages());
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (companyToDeleteId) {
-      const actionResult = await dispatch(deleteCompany(companyToDeleteId));
-      if (actionResult.meta.requestStatus === "fulfilled") {
-        dispatch(fetchCompanies());
-      }
-      closeDeleteDialog();
+    if (error) {
+      return (
+        <div className="text-center py-16">
+          <AlertTriangle size={64} className="mx-auto text-red-500 mb-6" />
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Unable to Load Data</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium"
+          >
+            Try Again
+          </motion.button>
+        </div>
+      );
     }
-  };
 
-  const handleCompanySelect = (company: Company) => {
-    dispatch(setSelectedCompany(company));
-    navigate(`/${company._id}/invoice`);
+    if (filteredCompanies.length === 0) {
+      return (
+        <div className="text-center py-16">
+          <Building2 size={64} className="mx-auto text-gray-400 mb-6" />
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">
+            {searchTerm ? 'No matching companies found' : 'No companies yet'}
+          </h3>
+          <p className="text-gray-600 mb-8">
+            {searchTerm ? 'Try adjusting your search or filter criteria.' : 'Create your first company to get started with your business management.'}
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleAddNew}
+            className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 mx-auto"
+          >
+            <PlusCircle size={20} />
+            Add Your First Company
+          </motion.button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filteredCompanies.map((company, index) => (
+          <CompanyCard key={company._id} company={company} index={index} />
+        ))}
+      </div>
+    );
   };
 
   return (
-    <>
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div>
-              <CardTitle className="text-xl flex items-center">
-                <Building2 className="h-5 w-5 mr-2 text-primary" />
-                Companies
-              </CardTitle>
-              <CardDescription>
-                Manage your business entities and their details
-              </CardDescription>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.2 }}
+      className="bg-white/60 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl overflow-hidden"
+    >
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-gray-50/80 to-blue-50/80 backdrop-blur-sm border-b border-white/30 p-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+              <Building2 size={20} className="text-white" />
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8">
-                <Filter className="h-3.5 w-3.5 mr-1" /> Filter
-              </Button>
-              <Button
-                onClick={() => openFormDialog()}
-                size="sm"
-                className="h-8"
-              >
-                <PlusCircle className="h-3.5 w-3.5 mr-1" /> Add Company
-              </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Companies</h2>
+              <p className="text-gray-600">Manage your business entities</p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading && companies.length === 0 ? (
-            <div className="p-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center space-x-4 mb-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-[250px]" />
-                    <Skeleton className="h-4 w-[200px]" />
-                  </div>
-                </div>
-              ))}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+            {/* Search */}
+            <div className="relative flex-1 lg:w-80">
+              <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search companies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-gray-200/50 rounded-xl 
+                  outline-none transition-all duration-300 focus:border-blue-400 focus:shadow-lg font-medium"
+              />
             </div>
-          ) : error ? (
-            <div className="p-8 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
-                <Trash2 className="h-10 w-10 text-destructive" />
+
+            {/* Filters */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="pl-4 pr-8 py-3 bg-white/80 border-2 border-gray-200/50 rounded-xl outline-none font-medium appearance-none cursor-pointer"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+                <Filter size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
-              <h3 className="mt-4 text-lg font-semibold">Error Loading Companies</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-              <Button onClick={() => dispatch(fetchCompanies())} className="mt-4">
-                Try Again
-              </Button>
-            </div>
-          ) : companies.length === 0 ? (
-            <div className="p-8 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                <Building2 className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">No Companies Yet</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Add your first company to get started.
-              </p>
-              <Button onClick={() => openFormDialog()} className="mt-4">
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleAddNew}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl font-bold 
+                  shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 whitespace-nowrap"
+              >
+                <PlusCircle size={18} />
                 Add Company
-              </Button>
+              </motion.button>
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded-b-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-[200px]">Company Name</TableHead>
-                    <TableHead>GSTIN</TableHead>
-                    <TableHead>Hallmark No.</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
-                    <TableHead className="hidden lg:table-cell">State</TableHead>
-                    <TableHead className="hidden xl:table-cell">Bank Account</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {companies.map((company) => (
-                    <TableRow key={company._id} className="group">
-                      <TableCell 
-                        className="font-medium cursor-pointer group-hover:text-primary group-hover:underline transition-colors"
-                        onClick={() => handleCompanySelect(company)}
-                      >
-                        <div className="flex items-center">
-                          {company.name}
-                          <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{company.gstin}</TableCell>
-                      <TableCell>{company.hallMarkNumber}</TableCell>
-                      <TableCell className="hidden md:table-cell">{company.email}</TableCell>
-                      <TableCell className="hidden lg:table-cell">{company.phone.join(", ")}</TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {company.state} <span className="text-xs text-muted-foreground">({company.stateCode})</span>
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        <span className="font-mono text-xs">{company.bankDetails.accountNumber}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {company.bankDetails.name}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openFormDialog(company)}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openDeleteDialog(company._id)}
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
 
-      {/* Add/Edit Company Dialog - Using CompanyForm component */}
-      <Dialog open={isFormDialogOpen} onOpenChange={closeFormDialog}>
-        <DialogContent className="sm:max-w-xl md:max-w-2xl flex flex-col max-h-[90vh]">
-          <DialogHeader className="p-6 pb-4">
-            <DialogTitle className="text-2xl font-bold">
-              {companyToEdit ? "Edit Company" : "Add New Company"}
-            </DialogTitle>
-            <DialogDescription>
-              {companyToEdit
-                ? "Make changes to company details here."
-                : "Enter details for your new company."}
-            </DialogDescription>
-          </DialogHeader>
-          <CompanyForm 
-            company={companyToEdit} 
-            onClose={closeFormDialog} 
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={closeDeleteDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-destructive">
-              Confirm Deletion
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this company? This action cannot
-              be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={closeDeleteDialog}
-              className="px-4 py-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={loading}
-              className="px-4 py-2"
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Delete Company
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      <div className="p-6">
+        {renderContent()}
+      </div>
+    </motion.div>
   );
 };
 
-export default CompanyTable;
+export default ModernCompanyTable;

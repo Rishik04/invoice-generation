@@ -98,6 +98,40 @@ export const loginUser = createAsyncThunk(
 );
 
 // Async Thunk for Registration
+export const onboardUser = createAsyncThunk(
+  "auth/registerUser",
+  async (userData: RegisterPayload, { rejectWithValue }) => {
+    try {
+      const response = await axios.post<RegisterResponse>(
+        `${AUTH_API_BASE_URL}/register`,
+        userData
+      );
+      const data = response.data; // Axios wraps the response in a `data` property
+
+      if (!data.success) {
+        // If the backend indicates failure but returns 200 OK, reject with its message
+        return rejectWithValue(data.message || "Registration failed.");
+      }
+
+      return data; // This payload goes to the fulfilled action
+    } catch (error: any) {
+      // Axios error handling
+      if (axios.isAxiosError(error) && error.response) {
+        // Backend sent an error response
+        return rejectWithValue(
+          error.response.data.message ||
+            "An error occurred during registration."
+        );
+      } else {
+        // Network error or other unexpected error
+        return rejectWithValue(
+          error.message ||
+            "Network error or unexpected issue during registration."
+        );
+      }
+    }
+  }
+);
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
   async (userData: RegisterPayload, { rejectWithValue }) => {

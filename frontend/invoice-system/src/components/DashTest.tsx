@@ -16,8 +16,8 @@ const DashTest = () => {
   return (
     <div className="space-y-6">
       <DashboardHeader />
-      <CompanyTable />
-      <DashboardStats />
+      {/* <CompanyTable /> */}
+      {/* <DashboardStats /> */}
     </div>
   );
 };
