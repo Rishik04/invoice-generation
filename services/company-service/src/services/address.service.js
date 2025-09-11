@@ -1,6 +1,7 @@
 import AddressModel from "../model/addressModel.js";
 import CompanyModel from "../model/companyModel.js";
 import { logger } from "../utils/logger.js";
+import { sendCompanyEvent } from "./message.producer.js";
 
 //create the address
 export const createAddressInDB = async (data) => {
@@ -18,9 +19,13 @@ export const createAddressInDB = async (data) => {
   }
 };
 
-
 //update address details
 export const updateAddressInDB = async (id, data) => {
   logger.info("updating address details with id " + id);
-  return await AddressModel.findByIdAndUpdate(id, data);
+  const address = await AddressModel.findByIdAndUpdate(id, data, { new: true });
+  const company = await CompanyModel.findOne({ address: address._id })
+    .populate("address")
+    .populate("bank");
+  await sendCompanyEvent("company.updated", company.toObject());
+  return address;
 };

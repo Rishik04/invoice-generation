@@ -86,7 +86,7 @@ const convertToIndianWords = (number) => {
   return convert(number);
 };
 
-const convertAmountToIndianWords = (amount) => {
+export const convertAmountToIndianWords = (amount) => {
   try {
     // Split into rupees and paise
     const parts = amount.toString().split(".");
@@ -110,5 +110,3 @@ const convertAmountToIndianWords = (amount) => {
     return "Rs Zero Only";
   }
 };
-
-module.exports = { convertAmountToIndianWords };

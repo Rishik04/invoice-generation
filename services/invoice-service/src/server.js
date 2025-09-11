@@ -1,16 +1,27 @@
-const express = require("express");
-const router = require("./routes");
-const path = require("path");
-const { log } = require("console");
-const cors = require("cors");
+import cors from "cors";
+import express from "express";
+import router from "./routes/index.js";
+import {
+  startCompanyConsumer,
+  startCustomerConsumer,
+  startProductConsumer,
+} from "./services/message-consumer.js";
+import * as db from "./db/db.js";
+import * as env from "dotenv";
+import { connectProducer } from "./services/message.producer.js";
+
+env.config();
 
 const app = express();
-
+await db.connect();
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+connectProducer();
+startCompanyConsumer().catch(console.error);
+startProductConsumer().catch(console.error);
+startCustomerConsumer().catch(console.error);
 
-app.use("/public", express.static(path.join(__dirname, "public")));
+// app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use("/", router);
 

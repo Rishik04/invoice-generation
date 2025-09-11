@@ -1,5 +1,6 @@
 import CompanyModel from "../model/companyModel.js";
 import { logger } from "../utils/logger.js";
+import { sendCompanyEvent } from "./message.producer.js";
 
 //create company
 export const createCompany = async (data) => {
@@ -14,10 +15,20 @@ export const createCompany = async (data) => {
 
 export const getCompanyByTenantId = async (tenantId) => {
   logger.info("Get company details with tenant id " + tenantId);
-  return await CompanyModel.findOne({ tenantId: tenantId }).populate("address").populate("bank");
+  return await CompanyModel.findOne({ tenantId: tenantId })
+    .populate("address")
+    .populate("bank");
 };
 
 export const updateCompanyDetails = async (data) => {
   logger.info("updating company details with data" + data);
-  return await CompanyModel.findOneAndUpdate({ tenantId: data.tenantId }, data);
+  const company = await CompanyModel.findOneAndUpdate(
+    { tenantId: data.tenantId },
+    data,
+    { new: true }
+  )
+    .populate("address")
+    .populate("bank");
+  await sendCompanyEvent("company.updated", company.toObject());
+  return company;
 };

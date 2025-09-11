@@ -1,9 +1,9 @@
 import { errorResponse, successResponse } from "../response/response.js";
 import {
-    createProductInDB,
-    getAllProductsFromDB,
-    getProductsByTypeFromDB,
-} from "../services/product.service.js";
+  createProductInDB,
+  getAllProductsFromDB,
+  getProductsByTypeFromDB,
+} from "../services/customer.service.js";
 import { logger } from "../utils/logger.js";
 
 export const createProduct = async (req, res) => {

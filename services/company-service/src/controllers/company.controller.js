@@ -36,7 +36,6 @@ export const getCompany = async (req, res) => {
 // for internal use only : to be removed
 export const addCompany = async (req, res) => {
   try {
-    await db.connect(); // Connect only when needed
     req.body.email = req.user.email;
 
     // Check if the company already exists
@@ -84,15 +83,12 @@ export const addCompany = async (req, res) => {
       return errorResponse(res, 400, "Company already exists", {});
     }
     return errorResponse(res, 400, "Error adding company", error);
-  } finally {
-    await db.disconnect();
   }
 };
 
 //needs to check the flow
 export const getCompanyById = async (req, res) => {
   try {
-    await db.connect(); // Connect only when needed
     // Check if the ID is valid
     if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
       return errorResponse(res, 400, "Invalid ID format", {});
@@ -107,8 +103,6 @@ export const getCompanyById = async (req, res) => {
   } catch (error) {
     console.log(error);
     return errorResponse(res, 400, "Error getting company", error);
-  } finally {
-    await db.disconnect();
   }
 };
 
@@ -125,6 +119,7 @@ export const updateCompany = async (req, res) => {
     if (!company) return errorResponse(res, 404, "Company not found", {});
     return successResponse(res, 200, "successfully updated company", company);
   } catch (error) {
+    console.log(error)
     return errorResponse(res, 400, "Error updating company", error);
   }
 };

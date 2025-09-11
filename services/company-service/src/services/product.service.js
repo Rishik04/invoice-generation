@@ -1,12 +1,15 @@
 import { logger } from "../utils/logger.js";
 import ProductModel from "../model/product.model.js";
 import CompanyModel from "../model/companyModel.js";
+import { sendProductEvent } from "./message.producer.js";
 
 export const createProductInDB = async (product) => {
   logger.info("Create product with data " + product);
   const company = await CompanyModel.findOne({ tenantId: product.tenantId });
   const updatedProduct = { ...product, companyId: company._id };
-  return await ProductModel(updatedProduct).save();
+  const productFromDB = await ProductModel(updatedProduct).save();
+  await sendProductEvent("product.created", productFromDB.toObject());
+  return productFromDB;
 };
 
 //get all products of the company
