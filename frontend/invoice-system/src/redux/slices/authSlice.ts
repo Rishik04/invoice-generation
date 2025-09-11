@@ -45,14 +45,17 @@ interface RegisterResponse {
 }
 
 // 2. Define Initial State
-const initialState: AuthState = {
-  loading: false,
-  isAuthenticated: false,
-  user: null,
-  token: null,
-  error: null,
-  successMessage: null,
-};
+const persistedAuth = localStorage.getItem("auth");
+const initialState: AuthState = persistedAuth
+  ? JSON.parse(persistedAuth)
+  : {
+      loading: false,
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      error: null,
+      successMessage: null,
+    };
 
 // 3. Create Async Thunks for API Calls using Axios
 
@@ -98,6 +101,40 @@ export const loginUser = createAsyncThunk(
 );
 
 // Async Thunk for Registration
+export const onboardUser = createAsyncThunk(
+  "auth/registerUser",
+  async (userData: RegisterPayload, { rejectWithValue }) => {
+    try {
+      const response = await axios.post<RegisterResponse>(
+        `${AUTH_API_BASE_URL}/register`,
+        userData
+      );
+      const data = response.data; // Axios wraps the response in a `data` property
+
+      if (!data.success) {
+        // If the backend indicates failure but returns 200 OK, reject with its message
+        return rejectWithValue(data.message || "Registration failed.");
+      }
+
+      return data; // This payload goes to the fulfilled action
+    } catch (error: any) {
+      // Axios error handling
+      if (axios.isAxiosError(error) && error.response) {
+        // Backend sent an error response
+        return rejectWithValue(
+          error.response.data.message ||
+            "An error occurred during registration."
+        );
+      } else {
+        // Network error or other unexpected error
+        return rejectWithValue(
+          error.message ||
+            "Network error or unexpected issue during registration."
+        );
+      }
+    }
+  }
+);
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
   async (userData: RegisterPayload, { rejectWithValue }) => {
@@ -165,11 +202,21 @@ const authSlice = createSlice({
         loginUser.fulfilled,
         (state, action: PayloadAction<LoginResponse>) => {
           state.loading = false;
-          state.isAuthenticated = true; // Set isAuthenticated to true on successful login
+          state.isAuthenticated = true;
           state.user = action.payload.user || null;
           state.token = action.payload.token || null;
           state.error = null;
           state.successMessage = action.payload.message;
+
+          // ✅ Persist auth to localStorage
+          localStorage.setItem(
+            "auth",
+            JSON.stringify({
+              user: state.user,
+              token: state.token,
+              isAuthenticated: state.isAuthenticated,
+            })
+          );
         }
       )
       .addCase(loginUser.rejected, (state, action) => {

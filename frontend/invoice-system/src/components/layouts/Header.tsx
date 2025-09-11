@@ -12,19 +12,20 @@ import { BellRing, LogOutIcon, Menu, Moon, Search, Settings, Sun, User } from "l
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarTrigger } from "../ui/menubar";
 import Sidebar from "./Sidebar";
 
-const Header = () => {
-  //   const { setTheme } = useTheme();
-
+const Header = ({ expanded }) => {
   return (
-    <header className="border-b sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className={`border-b sticky top-0 z-30 bg-background/95 backdrop-blur 
+        supports-[backdrop-filter]:bg-background/60 
+        transition-all duration-300 
+        ${expanded ? "md:pl-64" : "md:pl-20"}
+      `}
+    >
       <div className="flex h-16 items-center px-4 md:px-6">
+        {/* Mobile Sidebar Toggle */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="md:hidden mr-2"
-            >
+            <Button variant="outline" size="icon" className="md:hidden mr-2">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle Menu</span>
             </Button>
@@ -34,6 +35,7 @@ const Header = () => {
           </SheetContent>
         </Sheet>
 
+        {/* Search */}
         <div className="flex-1 flex justify-center md:justify-start">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -45,13 +47,16 @@ const Header = () => {
           </div>
         </div>
 
+        {/* Actions */}
         <div className="flex items-center gap-2 md:gap-4">
+          {/* Notifications */}
           <Button variant="outline" size="icon" className="relative">
             <BellRing className="h-4 w-4" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive"></span>
             <span className="sr-only">Notifications</span>
           </Button>
 
+          {/* Theme Toggle */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -61,19 +66,13 @@ const Header = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTheme("light")}>
-                Light
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
-                Dark
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
-                System
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* <Button variant="ghost" size="icon"> */}
+          {/* Settings */}
           <Menubar>
             <MenubarMenu>
               <MenubarTrigger>
@@ -93,8 +92,8 @@ const Header = () => {
               </MenubarContent>
             </MenubarMenu>
           </Menubar>
-          {/* </Button> */}
 
+          {/* Avatar */}
           <Avatar className="h-9 w-9">
             <AvatarImage src="https://github.com/shadcn.png" alt="User" />
             <AvatarFallback>UR</AvatarFallback>
@@ -104,5 +103,6 @@ const Header = () => {
     </header>
   );
 };
+
 
 export default Header;

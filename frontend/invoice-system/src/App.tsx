@@ -6,6 +6,7 @@ import DashboardLayout from "./components/layouts/DashboardLayout";
 import { useAppSelector } from "./redux/hooks";
 import CustomerPage from "./components/Customer";
 import InvoicePage from "./components/Invoice";
+import ModernCompanyDashboard from "./components/Dashboard/UpdatedDashboard";
 
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
   const { isAuthenticated, loading } = useAppSelector((state) => state.auth);
@@ -27,13 +28,14 @@ function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
+            // <ProtectedRoute>
               <DashboardLayout />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<DashTest />} />
+          <Route path="dashboard" element={<ModernCompanyDashboard />} />
+          {/* <Route path="dashboard" element={<DashTest />} /> */}
           <Route path=":id/invoice" element={<InvoiceForm />} />
           <Route path="customers" element={<CustomerPage />} />
           <Route path="invoices" element={<InvoicePage />} />
